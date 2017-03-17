@@ -141,7 +141,7 @@ def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfa
     """
     # open GPIB connection to the VNA
     rm =  visa.ResourceManager()
-    aly = rm.open_resource('GPIB1::16::INSTR')
+    aly = rm.open_resource('GPIB0::16::INSTR')
 
     # make sure VNA is on and communicating in the correct ascii form
     aly.write('SOUPON;')
