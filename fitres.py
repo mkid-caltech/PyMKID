@@ -31,7 +31,7 @@ def estpara(f, z):
     Qg = f0g/(2*iddf*(f[1]-f[0]))
     return f0g, Qg, idf0, iddf
 
-def circle2(z):
+def circle2(z, peaknum=0):
     # == METHOD 2b ==
     # "leastsq with jacobian"
     x = z.real
@@ -73,14 +73,14 @@ def circle2(z):
     r = R_2b
     residue = residu_2b
 
-    plt.figure(9)
+    plt.figure("Circle plot, peak {}".format(peaknum))
     plt.gca().set_aspect('equal', adjustable='box')
     plt.plot(x, y, '.')
     t = np.arange(0,2*np.pi,0.002)
     xcirc = center_2b[0]+r*np.cos(t)
     ycirc = center_2b[1]+r*np.sin(t)
     plt.plot(xcirc,ycirc)
-    plt.show()
+    #plt.show()
 
     return residue, zc, r
 
@@ -188,7 +188,7 @@ def fitphase(f, z, f0g, Qg, numspan=1):
     #fresult = fit(ft,angt,ftype,opts);
     #pherr = abs(angt - fresult(ft));
 
-def roughfit(f, z, tau, numspan=1):
+def roughfit(f, z, tau, numspan=1, peaknum=0):
     f1 = f[int(math.floor(len(f)/2))]
 
     # remove cable term
@@ -205,14 +205,14 @@ def roughfit(f, z, tau, numspan=1):
         id1 = 0
         id2 = len(z1)
 
-    residue, zc, r = circle2(z1[id1:id2])
+    residue, zc, r = circle2(z1[id1:id2], peaknum=peaknum)
 
     # rotation and traslation to center
     z2 = (zc - z1)*np.exp(-1j*np.angle(zc, deg=False))
-    plt.figure(10)
+    plt.figure("I Q Rotation and Centering for peak {}".format(peaknum))
     plt.gca().set_aspect('equal', adjustable='box')
     plt.plot(z2.real, z2.imag, '.')
-    plt.show()
+    #plt.show()
 
     # trim data and fit phase
     fresult, ft = fitphase(f, z2, f0g, Qg, numspan=numspan)
@@ -265,7 +265,7 @@ def resfunc(f, f0, Q, zdx, zdy, zinfx, zinfy, tau, f1=None):
     y = ayy+byy
     return y
 
-def finefit(f, z, tau, numspan=1):
+def finefit(f, z, tau, numspan=1, peaknum=0):
     """
     finefit fits f and z to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -283,7 +283,7 @@ def finefit(f, z, tau, numspan=1):
         Qc: coupling Q factor of the resonator. Caused be coupling to the feedline
     """
     # find starting parameters using a rough fit
-    f1, zc, r, ft, zt, f0, Q, phi, zd, zinf, Qc, Qi, Qi0 = roughfit(f, z, tau, numspan=numspan)
+    f1, zc, r, ft, zt, f0, Q, phi, zd, zinf, Qc, Qi, Qi0 = roughfit(f, z, tau, numspan=numspan, peaknum=peaknum)
 
     # estimate variance
     sig2x = estsig(f,z)
@@ -335,7 +335,7 @@ def finefit(f, z, tau, numspan=1):
     phi = np.angle(-zd/zc, deg=False)
 
     # plot the rough and fine fits to compare
-    plt.figure(11)
+    plt.figure("Rough vs fine fit comparison peak {}".format(peaknum))
     # the fit produced using the best parameters
     resftest = resfunc(f, fparams[0], fparams[1], fparams[2], fparams[3], fparams[4], fparams[5], fparams[6], f1=f1)
     # plot rough fit in red
@@ -348,7 +348,13 @@ def finefit(f, z, tau, numspan=1):
 
     return f0, Q, Qi0, Qc, zc
 
-def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
+def get_f_z(fname, chan="S21"):
+    with h5py.File(fname, "r") as fyle:
+        f = np.array(fyle["{}/f".format(chan)])
+        z = np.array(fyle["{}/z".format(chan)])
+    return f, z
+
+def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, save=True):
     """
     sweep_fit fits data taken using save_scatter to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -362,11 +368,9 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
         f0list, Qlist, Qilist, Qclist (lists of values for each resonator) save to the fname file
     """
     # open file and read data
-    with h5py.File(fname, "r") as fyle:
-        f = np.array(fyle["{}/f".format(chan)])
-        z = np.array(fyle["{}/z".format(chan)])
+    f, z = get_f_z(fname, chan)
 
-    plt.ion()
+    #plt.ion()
 
     # Butterworth filter
     nfreq = fwindow/(f[len(f)-1]-f[0])
@@ -382,7 +386,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
     azn[low_values_indices] = 0
 
     # plot azn with a horizontal line to show which peaks are above nsig sigma
-    plt.figure(8)
+    plt.figure("{} sigma peak finder".format(nsig))
     plt.plot(f, azn)
     bstd = np.std(azn)
     curr_xlims = [min(f), max(f)]
@@ -426,7 +430,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
 
     # plot the peak points from peaklist
     plt.plot(f[peaklist], azn[peaklist], 'gx')
-    plt.show()
+    #plt.show()
 
     # initialize the f0, Q, Qi, and Qc parameter lists
     f0list = np.zeros(len(peaklist))
@@ -437,15 +441,19 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
 
     # define the windows around each peak. and then use finefit to find the parameters
     for i in range(len(peaklist)):
-        curr_pts = [(f > (f[peaklist[i]]-fwindow)) & (f < (f[peaklist[i]]+fwindow))]
-        f0list[i], Qlist[i], Qilist[i], Qclist[i], zclist[i] = finefit(f[curr_pts], z[curr_pts], -40, numspan=2)
-
+        curr_pts = (f > (f[peaklist[i]]-fwindow)) & (f < (f[peaklist[i]]+fwindow))
+        try:
+            f0list[i], Qlist[i], Qilist[i], Qclist[i], zclist[i] = finefit(f[curr_pts], z[curr_pts], -40, numspan=2, peaknum=i)
+        except:
+            f0list[i], Qlist[i], Qilist[i], Qclist[i], zclist[i] = np.nan, np.nan, np.nan, np.nan, np.nan
+    plt.show()
     # save the lists to fname
-    with h5py.File(fname, "r+") as fyle:
-        if rewrite == True:
-            fyle.__delitem__("{}/f0list".format(chan))
-            fyle.__delitem__("{}/zclist".format(chan))
-        fyle["{}/f0list".format(chan)] = f0list
-        fyle["{}/zclist".format(chan)] = zclist
+    if save:
+        with h5py.File(fname, "r+") as fyle:
+            if rewrite == True:
+                fyle.__delitem__("{}/f0list".format(chan))
+                fyle.__delitem__("{}/zclist".format(chan))
+            fyle["{}/f0list".format(chan)] = f0list
+            fyle["{}/zclist".format(chan)] = zclist
 
     return f0list, Qlist, Qilist, Qclist, zclist
