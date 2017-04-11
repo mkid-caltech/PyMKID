@@ -156,8 +156,13 @@ def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfa
             fyle["{}/f".format(chan)] = f
             fyle["{}/z".format(chan)] = z
 
-def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False):
+def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False, style="-", linewidth=1):
     """
+    170323 Yen-Yung Chang
+    add style and linewidth arguments
+    """
+    """
+    16xxxx Taylor
     replots the graphs shown during save_scatter(plotting=True) for file fname
     Input parameters:
         fname: desired name for the input file. eg "YY160622.h5". Should be made using save_scatter
@@ -180,7 +185,8 @@ def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False
             plt.title(chan)
             plt.xlabel('GHz')
             plt.ylabel('DB')
-            plt.plot(np.array(f), zt, color=color, label=fname)
+            line_style = color+style
+            plt.plot(np.array(f), zt, line_style, label=fname, linewidth=linewidth)
             if legend:
                 plt.legend(bbox_to_anchor=(1,1.1))
             #plt.pause(0.02)
