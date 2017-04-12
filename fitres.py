@@ -18,13 +18,19 @@ def estpara(f, z):
     z1 = np.mean(z[:10])
     z2 = np.mean(z[len(f)-10:])
     zr = np.mean([z1, z2])
-    idf0 = np.argmax(abs(np.array(z)-zr))
+    idf0 = max(np.argmax(abs(np.array(z)-zr)),1)
+    #print abs(np.array(z)-zr)
     z0 = z[idf0]
     f0g = f[idf0]
     #zcg = np.mean([zr, z0])
     rg = abs(zr - z0)/2
     zz1 = z[:idf0]
+    #print len(z), idf0
     zz2 = z[idf0:]
+    #print "zz1", zz1
+    #print "z0", z0
+    #print "rg", rg
+    #print abs(abs(zz1-z0) - np.sqrt(2)*rg)
     id3db1 = np.argmin(abs(abs(zz1-z0) - np.sqrt(2)*rg))
     id3db2 = np.argmin(abs(abs(zz2-z0) - np.sqrt(2)*rg))
     iddf = max(abs(idf0 - id3db1), abs(id3db2))
@@ -80,7 +86,7 @@ def circle2(z):
     xcirc = center_2b[0]+r*np.cos(t)
     ycirc = center_2b[1]+r*np.sin(t)
     plt.plot(xcirc,ycirc)
-    plt.show()
+    #plt.show()
 
     return residue, zc, r
 
@@ -195,6 +201,7 @@ def roughfit(f, z, tau, numspan=1):
     z1 = removecable(f, z, tau)
 
     # estimate f0, Q (very rough)
+    #print f, z1
     f0g, Qg, idf0, iddf = estpara(f,z1)
 
     # fit circle using data points f0g +- 2*f0g/Qg
@@ -212,7 +219,7 @@ def roughfit(f, z, tau, numspan=1):
     plt.figure(10)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.plot(z2.real, z2.imag, '.')
-    plt.show()
+    #plt.show()
 
     # trim data and fit phase
     fresult, ft = fitphase(f, z2, f0g, Qg, numspan=numspan)
@@ -344,11 +351,11 @@ def finefit(f, z, tau, numspan=1):
     plt.plot(f, resftest, 'b')
     # plot real data
     plt.plot(f, z.imag, '.')
-    plt.show
+    #plt.show()
 
     return f0, Q, Qi0, Qc, zc
 
-def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
+def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
     """
     sweep_fit fits data taken using save_scatter to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -356,7 +363,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
         nsig: number of sigma above which a peak is considered a resonator peak
         fwindow: half width of the window cut around each resonator before the resonator is fit
         chan: channel from save_scatter being analyzed
-        rewrite: whether or not sweep_fit will save its fit data over previous fit data in the fname file
+        write: whether or not sweep_fit will save its fit data to the fname file
 
     Returns:
         f0list, Qlist, Qilist, Qclist (lists of values for each resonator) save to the fname file
@@ -366,7 +373,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
         f = np.array(fyle["{}/f".format(chan)])
         z = np.array(fyle["{}/z".format(chan)])
 
-    plt.ion()
+    #plt.ion()
 
     # Butterworth filter
     nfreq = fwindow/(f[len(f)-1]-f[0])
@@ -382,13 +389,17 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
     azn[low_values_indices] = 0
 
     # plot azn with a horizontal line to show which peaks are above nsig sigma
-    plt.figure(8)
-    plt.plot(f, azn)
+    fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
+    axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
+    axarr[0].set_title('Sharing X axis')
+    #axarr[1].scatter(x, y)
+    #plt.figure(8)
+    axarr[1].plot(f, azn)
     bstd = np.std(azn)
     curr_xlims = [min(f), max(f)]
     nsigline =  bstd*nsig*np.array([1, 1])
-    plt.plot(curr_xlims, nsigline, 'r-')
-    plt.xlim(curr_xlims[0], curr_xlims[1])
+    axarr[1].plot(curr_xlims, nsigline, 'r-')
+    #axarr[1].xlim(curr_xlims[0], curr_xlims[1])
 
     # initialize peaklist
     peaklist = np.array([], dtype = int)
@@ -425,7 +436,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
                 lookformax = True
 
     # plot the peak points from peaklist
-    plt.plot(f[peaklist], azn[peaklist], 'gx')
+    axarr[1].plot(f[peaklist], azn[peaklist], 'gx')
     plt.show()
 
     # initialize the f0, Q, Qi, and Qc parameter lists
@@ -440,12 +451,15 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False):
         curr_pts = [(f > (f[peaklist[i]]-fwindow)) & (f < (f[peaklist[i]]+fwindow))]
         f0list[i], Qlist[i], Qilist[i], Qclist[i], zclist[i] = finefit(f[curr_pts], z[curr_pts], -40, numspan=2)
 
+    print 'here'
     # save the lists to fname
     with h5py.File(fname, "r+") as fyle:
-        if rewrite == True:
+        if write == True:
             fyle.__delitem__("{}/f0list".format(chan))
             fyle.__delitem__("{}/zclist".format(chan))
-        fyle["{}/f0list".format(chan)] = f0list
-        fyle["{}/zclist".format(chan)] = zclist
+            fyle["{}/f0list".format(chan)] = f0list
+            fyle["{}/zclist".format(chan)] = zclist
+
+    plt.show()
 
     return f0list, Qlist, Qilist, Qclist, zclist
