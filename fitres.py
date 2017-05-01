@@ -286,8 +286,9 @@ def finefit(f, z, tau, numspan=1):
         Q: total Q factor of the resonator
         Qi0: unsure?
             Qi is the internal Q factor of the resonator. Accounts for all the other loss channels
-            (Ql, QTL) than through coupling to the feedline (Qc)[paraphrased from Jiansogn thesis]
+            (Ql, QTL) than through coupling to the feedline (Qc)[paraphrased from Jiansong thesis]
         Qc: coupling Q factor of the resonator. Caused be coupling to the feedline
+        zc:
     """
     # find starting parameters using a rough fit
     f1, zc, r, ft, zt, f0, Q, phi, zd, zinf, Qc, Qi, Qi0 = roughfit(f, z, tau, numspan=numspan)
