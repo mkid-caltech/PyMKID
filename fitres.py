@@ -9,32 +9,36 @@ import matplotlib.pyplot as plt
 import h5py
 from functools import partial
 
-def removecable(f, z, tau):
-    f1 = f[int(math.floor(len(f)/2))]
+def removecable(f, z, tau, f1):
     z1 = np.array(z)*np.exp(-2j*np.pi*(np.array(f)-f1)*tau)
     return z1
 
 def estpara(f, z):
+    """
+    returns:
+        f0g:  The estimated center frequency for this resonance
+        Qg:   The estimated total quality factor
+        idf0: The estimated center frequency in index number space
+        iddf: Half the 3dB bandwidth in index number space
+    """
+
     z1 = np.mean(z[:10])
-    z2 = np.mean(z[len(f)-10:])
+    z2 = np.mean(z[-10:])
     zr = np.mean([z1, z2])
+
     idf0 = max(np.argmax(abs(np.array(z)-zr)),1)
-    #print abs(np.array(z)-zr)
+
     z0 = z[idf0]
     f0g = f[idf0]
-    #zcg = np.mean([zr, z0])
     rg = abs(zr - z0)/2
-    zz1 = z[:idf0]
-    #print len(z), idf0
-    zz2 = z[idf0:]
-    #print "zz1", zz1
-    #print "z0", z0
-    #print "rg", rg
-    #print abs(abs(zz1-z0) - np.sqrt(2)*rg)
-    id3db1 = np.argmin(abs(abs(zz1-z0) - np.sqrt(2)*rg))
-    id3db2 = np.argmin(abs(abs(zz2-z0) - np.sqrt(2)*rg))
+    zleft = z[:idf0]
+    zright = z[idf0:]
+
+    id3db1 = np.argmin(abs(abs(abs(zleft-zr)) - np.sqrt(2)*rg))
+    id3db2 = np.argmin(abs(abs(abs(zright-zr)) - np.sqrt(2)*rg))
     iddf = max(abs(idf0 - id3db1), abs(id3db2))
     Qg = f0g/(2*iddf*(f[1]-f[0]))
+
     return f0g, Qg, idf0, iddf
 
 def circle2(z):
@@ -79,14 +83,13 @@ def circle2(z):
     r = R_2b
     residue = residu_2b
 
-    plt.figure(9)
+    plt.figure(2)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.plot(x, y, '.')
     t = np.arange(0,2*np.pi,0.002)
     xcirc = center_2b[0]+r*np.cos(t)
     ycirc = center_2b[1]+r*np.sin(t)
     plt.plot(xcirc,ycirc)
-    #plt.show()
 
     return residue, zc, r
 
@@ -106,8 +109,7 @@ def unfoldphasenoisy(phain, pct=0):
             oldave = np.mean(phaout[j-numsmopts:j+1])
         valsel = [phaout[j+1]-2*np.pi, phaout[j+1], phaout[j+1]+2*np.pi]
         idd = np.argmin(abs(valsel-oldave))
-        phaout[j+1:len(phaout)] = (phaout[j+1:len(phaout)] + (idd-1)*2*np.pi)
-        #[j,oldave,id]
+        phaout[j+1:] = (phaout[j+1:] + (idd-1)*2*np.pi)
 
     if phaout[0] < -np.pi:
         phaout = phaout+2*np.pi
@@ -115,21 +117,21 @@ def unfoldphasenoisy(phain, pct=0):
     return phaout
 
 def smooth(x, window_len=7):
-    # smooths an inuput array using a moving average of size window_len
+    # smooths an input array using a moving average of size window_len
     y=[]
     winside = int((window_len-1)/2)
     for i in range(len(x)):
         if (i-winside)<0 and (i+winside)<len(x):
-            meand = x[0:(2*i)+1]
+            meand = x[:(2*i)+1]
         if (i-winside)>=0 and (i+winside)>=len(x):
-            meand = x[len(x)-(2*(len(x)-i))+1:len(x)]
+            meand = x[len(x)-(2*(len(x)-i))+1:]
         if (i-winside)>=0 and (i+winside)<len(x):
             meand = x[i-winside:i+winside+1]
         if (i-winside)<0 and (i+winside)>=len(x):
             if (winside-i)>(i+winside-len(x)):
-                meand = x[0:(2*i)+1]
+                meand = x[:(2*i)+1]
             if (winside-i)<(i+winside-len(x)):
-                meand = x[len(x)-(2*(len(x)-i))+1:len(x)]
+                meand = x[len(x)-(2*(len(x)-i))+1:]
             if (winside-i)==(i+winside-len(x)):
                 meand = x
         y.append([np.mean(meand)])
@@ -162,11 +164,11 @@ def fitphase(f, z, f0g, Qg, numspan=1):
     # estimate f0, Q and phi
     hnumsmopts = int(math.floor(((f0g/Qg)/3)/fstep))
     hnumsmopts = int(max(min(hnumsmopts, 20), 1))
-    zm = smooth(z, hnumsmopts*2)
+    zm = smooth(z, window_len=hnumsmopts*2)
     angm = unfoldphasenoisy(np.angle(zm, deg=False))      # this filter also does nothing to the current data set
-    dangm = angm[hnumsmopts:] - angm[:len(angm)-hnumsmopts]
-    fd    =    f[hnumsmopts:] -    f[:len(f)-hnumsmopts]
-    idd = np.argmin(dangm[hnumsmopts:len(dangm)-hnumsmopts])
+    dangm = angm[hnumsmopts:] - angm[:-hnumsmopts]
+    #fd    =    f[hnumsmopts:] -    f[:-hnumsmopts]
+    idd = np.argmin(dangm)
     f0 = f[idd + hnumsmopts]
 
     # linear fit around f0 to find Q and phi
@@ -175,6 +177,7 @@ def fitphase(f, z, f0g, Qg, numspan=1):
     fmid = f[max(idh-wid,0):min(idh+wid,len(f))]
     xmid = (f0-fmid)/f0
     angmid = ang[max(idh-wid,0):min(idh+wid,len(f))]
+
     # using polyfit instead of mregress.m
     cof = np.polyfit(xmid, angmid,1)  # angmid=(cof[0]*xmid)+cof[1]
     phi = -cof[1];
@@ -182,26 +185,20 @@ def fitphase(f, z, f0g, Qg, numspan=1):
 
     # set the width of the weighing function to 2df
     ft, angt = trimdata(f, ang, f0, Q, numspan=numspan)
-    ft, zt   = trimdata(f, z, f0, Q, numspan=numspan)
+    #ft, zt   = trimdata(f, z, f0, Q, numspan=numspan)
 
     # using robust(?) fit from curve fit
     fresult = opt.curve_fit(phasefunc, ft, angt, p0=[Q, f0, phi])
-    #?# pherr = abs(angt-fresult)
+
     return fresult[0], ft
 
-    #ftype = fittype('phi+2*atan(2*Q*(1-f/f0))','ind','f');
-    #opts = fitoptions('method','NonlinearLeastSquares','Robust','on','StartPoint',[Q,f0,phi]);
-    #fresult = fit(ft,angt,ftype,opts);
-    #pherr = abs(angt - fresult(ft));
-
-def roughfit(f, z, tau, numspan=1):
+def roughfit(f, z, tau0, numspan=1):
     f1 = f[int(math.floor(len(f)/2))]
 
     # remove cable term
-    z1 = removecable(f, z, tau)
+    z1 = removecable(f, z, tau0, f1)
 
     # estimate f0, Q (very rough)
-    #print f, z1
     f0g, Qg, idf0, iddf = estpara(f,z1)
 
     # fit circle using data points f0g +- 2*f0g/Qg
@@ -210,16 +207,15 @@ def roughfit(f, z, tau, numspan=1):
 
     if len(range(id1, id2)) < 10:
         id1 = 0
-        id2 = len(z1)
+        id2 = len(f)
 
     residue, zc, r = circle2(z1[id1:id2])
 
     # rotation and traslation to center
     z2 = (zc - z1)*np.exp(-1j*np.angle(zc, deg=False))
-    plt.figure(10)
+    plt.figure(3)
     plt.gca().set_aspect('equal', adjustable='box')
     plt.plot(z2.real, z2.imag, '.')
-    #plt.show()
 
     # trim data and fit phase
     fresult, ft = fitphase(f, z2, f0g, Qg, numspan=numspan)
@@ -236,7 +232,7 @@ def roughfit(f, z, tau, numspan=1):
     zd = -zc/abs(zc)*np.exp(-1j*phi)*r*2
     zinf = zc - zd/2
 
-    Qc = abs(zinf)/abs(zd)*Q
+    Qc = (abs(zinf)/abs(zd))*Q
     #Qc = Q*(abs(zc)+r)/(2*r)
     Qi = 1/((1/Q)-(1/Qc))
 
@@ -272,13 +268,30 @@ def resfunc(f, f0, Q, zdx, zdy, zinfx, zinfy, tau, f1=None):
     y = ayy+byy
     return y
 
-def finefit(f, z, tau, numspan=1):
+def resfunc2(f, fr, Qr, Qc, areal, aimag, phi0, tau, f1=None):
+    x = abs(f)
+    a = areal + 1j*aimag
+    complexy = a*np.exp(2j*np.pi*(x-f1)*tau)*(1-(((Qr/Qc)*np.exp(1j*phi0))/(1+(2j*Qr*(x-fr)/fr))))
+
+    complexy = np.array(complexy)
+    realy = complexy.real
+    realy[f>0] = 0
+    imagy = complexy.imag
+    imagy[f<0] = 0
+    y = realy+imagy
+    return y
+
+def resfunc3(f, fr, Qr, Qc, a, phi, tau):
+    y = a*np.exp(2j*np.pi*f*tau)*(1-(((Qr/Qc)*np.exp(1j*phi))/(1+(2j*Qr*(f-fr)/fr))))
+    return y
+
+def finefit(f, z, tau0, numspan=1):
     """
     finefit fits f and z to the resonator model described in Jiansong's thesis
     Input parameters:
         f: frequencys
         z: complex impedence
-        tau: cable delay
+        tau0: cable delay
         numspan: how many bandwidths (f0/Q) to cut around the data during fit (numspan=1 gives f0/Q on each side for a total width of 2 bandwidth)
 
     Returns:
@@ -291,7 +304,7 @@ def finefit(f, z, tau, numspan=1):
         zc:
     """
     # find starting parameters using a rough fit
-    f1, zc, r, ft, zt, f0, Q, phi, zd, zinf, Qc, Qi, Qi0 = roughfit(f, z, tau, numspan=numspan)
+    f1, zc, r, ft, zt, f0, Q, phi, zd, zinf, Qc, Qi, Qi0 = roughfit(f, z, tau0, numspan=numspan)
 
     # estimate variance
     sig2x = estsig(f,z)
@@ -304,32 +317,43 @@ def finefit(f, z, tau, numspan=1):
         f1 = f[int(math.floor(len(f)/2))]
 
     # the fit produced using the starting parameters
-    resctest = resfunc(f, f0, Q, zd.real, zd.imag, zinf.real, zinf.imag, tau, f1=f1)
+    resctest = 1j*resfunc(f, f0, Q, zd.real, zd.imag, zinf.real, zinf.imag, tau0, f1=f1) + resfunc(-f, f0, Q, zd.real, zd.imag, zinf.real, zinf.imag, tau0, f1=f1)
 
     # combine x and y data so the fit can go over both simultaneously
     xdata = np.concatenate([-f, f])
     ydata = np.concatenate([z.real, z.imag])
 
-    # separate the real and imaginart parts of zd and zinf
+    # separate the real and imaginary parts of zd and zinf
     zdx = zd.real
     zdy = zd.imag
     zinfx = zinf.real
     zinfy = zinf.imag
 
     # perform the fine fit
-    fparams, fcov = opt.curve_fit(partial(resfunc, f1=f1), xdata, ydata, p0=[f0, Q, zdx, zdy, zinfx, zinfy, tau])
+    #fparams, fcov = opt.curve_fit(partial(resfunc, f1=f1), xdata, ydata, p0=[f0, Q, zdx, zdy, zinfx, zinfy, tau0])
+
+    a1 = zinf # a1=a*np.exp(+2j*np.pi*f1*tau)
+    phi0 = np.angle(-zd/zinf, deg=False)
+    fparams, fcov = opt.curve_fit(partial(resfunc2, f1=f1), xdata, ydata, p0=[f0, Q, Qc, a1.real, a1.imag, phi0, tau0])
 
     # untangle best fit parameters
-    f0 = fparams[0]
-    Q = fparams[1]
-    zd = fparams[2]+1j*fparams[3]
-    zinf = fparams[4]+1j*fparams[5]
-    tau = fparams[6]
+    #f0 = fparams[0]
+    #Q = fparams[1]
+    #zd = fparams[2]+1j*fparams[3]
+    #zinf = fparams[4]+1j*fparams[5]
+    #tau = fparams[6]
+
+    fr_fine = fparams[0]
+    Qr_fine = fparams[1]
+    Qc_fine = fparams[2]
+    a_fine = (fparams[3] + 1j*fparams[4])*np.exp(-2j*np.pi*f1*fparams[6])
+    phi_fine = fparams[5]
+    tau_fine = fparams[6]
 
     # find Qc, unsure where this equation originates
-    Qc = abs(zinf)/abs(zd)*Q
+    #Qc = (abs(zinf)/abs(zd))*Q
     # find Qi (all Q that isn't Qc)
-    Qi = 1/((1/Q)-(1/Qc))
+    Qi_fine = 1/((1/Qr_fine)-(1/Qc_fine))
 
 
     # the next section finds Qi0 and other parameters. I'm not sure where any of these equations come from or why we want these parameters
@@ -343,18 +367,23 @@ def finefit(f, z, tau, numspan=1):
     phi = np.angle(-zd/zc, deg=False)
 
     # plot the rough and fine fits to compare
-    plt.figure(11)
-    # the fit produced using the best parameters
-    resftest = resfunc(f, fparams[0], fparams[1], fparams[2], fparams[3], fparams[4], fparams[5], fparams[6], f1=f1)
-    # plot rough fit in red
-    plt.plot(f, resctest, 'r')
-    # plot fine fit in blue
-    plt.plot(f, resftest, 'b')
-    # plot real data
-    plt.plot(f, z.imag, '.')
-    #plt.show()
+    plt.figure(4)
 
-    return f0, Q, Qi0, Qc, zc
+    # the fit produced using the best parameters
+    #resftest = 1j*resfunc2(f, fparams[0], fparams[1], fparams[2], fparams[3], fparams[4], fparams[5], fparams[6], f1=f1) + resfunc2(-f, fparams[0], fparams[1], fparams[2], fparams[3], fparams[4], fparams[5], fparams[6], f1=f1)
+    resftest = resfunc3(f, fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine)
+
+    # plot rough fit in red
+    plt.plot(f, 20*np.log10(np.abs(resctest)), 'r')
+
+    # plot fine fit in blue
+    plt.plot(f, 20*np.log10(np.abs(resftest)), 'b')
+
+    # plot real data
+    plt.plot(f, 20*np.log10(np.abs(z)), '.')
+
+    #return f0, Q, Qi0, Qc, zc
+    return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine
 
 def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
     """
@@ -374,15 +403,12 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
         f = np.array(fyle["{}/f".format(chan)])
         z = np.array(fyle["{}/z".format(chan)])
 
-    #plt.ion()
-
-    # Butterworth filter
-    nfreq = fwindow/(f[len(f)-1]-f[0])
-    b, a = sig.butter(2, nfreq, btype='highpass')
+    # Butterworth filter to remove features larger than n*nfreq
+    nfreq = fwindow/(f[-1]-f[0])    # The 
+    b, a = sig.butter(2, 3*nfreq, btype='highpass')
 
     # Zero phase digital filter
     az = abs(z)
-    az = az.flatten()
     azn = -sig.filtfilt(b, a, az)
 
     # set all negative azn values to zero
@@ -390,17 +416,15 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
     azn[low_values_indices] = 0
 
     # plot azn with a horizontal line to show which peaks are above nsig sigma
+    plt.figure(1)
     fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
     axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
     axarr[0].set_title('Sharing X axis')
-    #axarr[1].scatter(x, y)
-    #plt.figure(8)
     axarr[1].plot(f, azn)
     bstd = np.std(azn)
     curr_xlims = [min(f), max(f)]
     nsigline =  bstd*nsig*np.array([1, 1])
     axarr[1].plot(curr_xlims, nsigline, 'r-')
-    #axarr[1].xlim(curr_xlims[0], curr_xlims[1])
 
     # initialize peaklist
     peaklist = np.array([], dtype = int)
@@ -437,7 +461,8 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
                 lookformax = True
 
     # plot the peak points from peaklist
-    axarr[1].plot(f[peaklist], azn[peaklist], 'gx')
+    axarr[1].plot(f[peaklist], azn[peaklist], 'gx', label=str(len(peaklist))+" resonances identified")
+    plt.legend()
     plt.show()
 
     # initialize the f0, Q, Qi, and Qc parameter lists
@@ -447,12 +472,38 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
     Qclist = np.zeros(len(peaklist))
     zclist = np.array([0.+0j]*len(peaklist))
 
+    fr_list = np.zeros(len(peaklist))
+    Qr_list = np.zeros(len(peaklist))
+    Qc_list = np.zeros(len(peaklist))
+    a_list = np.array([0.+0j]*len(peaklist))
+    phi_list = np.zeros(len(peaklist))
+    tau_list = np.zeros(len(peaklist))
+
     # define the windows around each peak. and then use finefit to find the parameters
     for i in range(len(peaklist)):
         curr_pts = [(f > (f[peaklist[i]]-fwindow)) & (f < (f[peaklist[i]]+fwindow))]
-        f0list[i], Qlist[i], Qilist[i], Qclist[i], zclist[i] = finefit(f[curr_pts], z[curr_pts], -40, numspan=2)
+        #f0list[i], Qlist[i], Qilist[i], Qclist[i], zclist[i] = finefit(f[curr_pts], z[curr_pts], -30, numspan=2)
+        fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i] = finefit(f[curr_pts], z[curr_pts], -30, numspan=2)
+        if i==0:
+            fit=resfunc3(f[curr_pts], fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
+            fitwords = "fr = " + str(fr_list[i]) + "\n" + "Qr = " + str(Qr_list[i]) + "\n" + "Qc = " + str(Qc_list[i]) + "\n" + "a = " + str(a_list[i]) + "\n" + "phi = " + str(phi_list[i]) + "\n" + "tau = " + str(tau_list[i]) + "\n"
 
-    print 'here'
+            plt.figure(5)
+            plt.subplot(2,2,1)
+            plt.plot(f[curr_pts], 20*np.log10(np.abs(z[curr_pts])),'.')
+            plt.plot(f[curr_pts], 20*np.log10(np.abs(fit)))
+            plt.title("resonance " + str(i) + " at " + str(int(10000*fr_list[i])/10000) + " GHz")
+            plt.xlabel("Frequency [GHz]")
+            plt.ylabel("|S21| [dB]")
+            plt.subplot(2,2,2)
+            plt.gca().set_aspect('equal', adjustable='box')
+            plt.plot(z.real[curr_pts], z.imag[curr_pts],'.')
+            plt.plot(fit.real, fit.imag)
+            plt.xlabel("S21 real")
+            plt.ylabel("S21 imaginary")
+            plt.figtext(0.2, 0.2, fitwords)
+
+
     # save the lists to fname
     with h5py.File(fname, "r+") as fyle:
         if write == True:
@@ -463,4 +514,4 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
 
     plt.show()
 
-    return f0list, Qlist, Qilist, Qclist, zclist
+    return fr_list, Qr_list, Qc_list
