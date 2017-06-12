@@ -422,8 +422,10 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
     plt.figure(figsize=(10, 10))
     fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
     axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
-    axarr[0].set_title('Sharing X axis')
+    axarr[0].set_title('Transmission with Resonance Identification')
+    axarr[0].set_ylabel("|$S_{21}$| [dB]")
     axarr[1].plot(f, azn)
+    axarr[1].set_xlabel("Frequency [GHz]")
     bstd = np.std(azn)
     curr_xlims = [min(f), max(f)]
     nsigline =  bstd*nsig*np.array([1, 1])
@@ -489,7 +491,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
         zrfit = resfunc3(fr_list[i], fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
         fit_down = resfunc3(f_curr, fr_list[i], 0.95*Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
         fit_up = resfunc3(f_curr, fr_list[i], 1.05*Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
-        fitwords = "fr = " + str(fr_list[i]) + "\n" + "Qr = " + str(Qr_list[i]) + "\n" + "Qc = " + str(Qc_list[i]) + "\n" + "a = " + str(a_list[i]) + "\n" + "phi = " + str(phi_list[i]) + "\n" + "tau = " + str(tau_list[i]) + "\n"
+        fitwords = "$f_{r}$ = " + str(fr_list[i]) + "\n" + "$Q_{r}$ = " + str(Qr_list[i]) + "\n" + "$Q_{c}$ = " + str(Qc_list[i]) + "\n" + "$a$ = " + str(a_list[i]) + "\n" + "$\phi_{0}$ = " + str(phi_list[i]) + "\n" + r"$\tau$ = " + str(tau_list[i]) + "\n"
         plt.figure(figsize=(10, 10))
 
         plt.subplot(2,2,1)
@@ -497,10 +499,11 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
         plt.plot(f_curr, 20*np.log10(np.abs(fit_down)), label='Fit 0.95Q')
         plt.plot(f_curr, 20*np.log10(np.abs(fit)), label='Fit 1.00Q')
         plt.plot(f_curr, 20*np.log10(np.abs(fit_up)), label='Fit 1.05Q')
-        plt.plot(fr_list[i], 20*np.log10(np.abs(zrfit)), '*', markersize=10, color='red', label='Fr')
+        plt.plot(fr_list[i], 20*np.log10(np.abs(zrfit)), '*', markersize=10, color='red', label='$f_{r}$')
         plt.title("resonance " + str(i) + " at " + str(int(10000*fr_list[i])/10000) + " GHz")
         plt.xlabel("Frequency [GHz]")
-        plt.ylabel("|S21| [dB]")
+        plt.xticks([min(f_curr),max(f_curr)])
+        plt.ylabel("|$S_{21}$| [dB]")
         plt.legend(bbox_to_anchor=(2, -0.15))
 
         plt.subplot(2,2,2)
@@ -510,13 +513,13 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
         plt.plot(fit.real, fit.imag,  label='Fit 1.00Q')
         plt.plot(fit_up.real, fit_up.imag, label='Fit 1.05Q')
         plt.plot(zrfit.real, zrfit.imag, '*', markersize=10, color='red',  label='Fr')
-        plt.xlabel("S21 real")
+        plt.xlabel("$S_{21}$ real")
         plt.xticks([min(z_curr.real),max(z_curr.real)])
-        plt.ylabel("S21 imaginary")
+        plt.ylabel("$S_{21}$ imaginary")
         plt.yticks([min(z_curr.imag),max(z_curr.imag)])
 
         plt.figtext(0.6, 0.085, fitwords)
-        plt.figtext(0.55, 0.26, r"$t_{21}(f)=ae^{-2\pi jf\tau}\left [ 1-\frac{Q_{r}/Q_{c}e^{j\phi_{0}}}{1+2jQ_{r}(\frac{f-f_{r}}{f_{r}})} \right ]$", fontsize=20)
+        plt.figtext(0.55, 0.26, r"$S_{21}(f)=ae^{-2\pi jf\tau}\left [ 1-\frac{Q_{r}/Q_{c}e^{j\phi_{0}}}{1+2jQ_{r}(\frac{f-f_{r}}{f_{r}})} \right ]$", fontsize=20)
 
         plt.subplot(2,2,3, projection="polar")
         zi_no_cable = removecable(f_curr, z_curr, tau_list[i], 0)/(a_list[i])
@@ -537,9 +540,11 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
     # save the lists to fname
     with h5py.File(fname, "r+") as fyle:
         if write == True:
-            fyle.__delitem__("{}/f0list".format(chan))
-            fyle.__delitem__("{}/zclist".format(chan))
-            fyle["{}/f0list".format(chan)] = f0list
-            fyle["{}/zclist".format(chan)] = zclist
+            if "{}/fr_list".format(chan) in fyle:
+                fyle.__delitem__("{}/fr_list".format(chan))
+            if "{}/Qr_list".format(chan) in fyle:
+                fyle.__delitem__("{}/Qr_list".format(chan))
+            fyle["{}/fr_list".format(chan)] = fr_list
+            fyle["{}/Qr_list".format(chan)] = Qr_list
 
     return fr_list, Qr_list, Qc_list
