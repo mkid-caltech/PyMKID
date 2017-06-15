@@ -3,7 +3,7 @@ import numpy as np
 import scipy.signal as sig
 import scipy.optimize as opt
 import math
-import cmath
+#import cmath
 import matplotlib.pyplot as plt
 import h5py
 from functools import partial
@@ -388,7 +388,7 @@ def finefit(f, z, tau0, numspan=1):
     #return f0, Q, Qi0, Qc, zc
     return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine
 
-def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False, freqfile=False):
+def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=False):
     """
     sweep_fit fits data taken using save_scatter to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -396,7 +396,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False, freqfile=Fal
         nsig: number of sigma above which a peak is considered a resonator peak
         fwindow: half width of the window cut around each resonator before the resonator is fit
         chan: channel from save_scatter being analyzed
-        write: whether or not sweep_fit will save its fit data to the fname file
+        rewrite: whether or not sweep_fit will save its fit data to the fname file
 
     Returns:
         fr_list, Qr_list, Qc_list (lists of values for each resonator) save to the fname file
@@ -539,7 +539,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False, freqfile=Fal
 
     # save the lists to fname
     with h5py.File(fname, "r+") as fyle:
-        if write == True:
+        if rewrite == True:
             if "{}/fr_list".format(chan) in fyle:
                 fyle.__delitem__("{}/fr_list".format(chan))
             if "{}/Qr_list".format(chan) in fyle:
@@ -548,6 +548,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False, freqfile=Fal
             fyle["{}/Qr_list".format(chan)] = Qr_list
 
     if freqfile == True:
-        np.savetxt("freqfile.txt", np.transpose(np.array([fr_list, np.zeros(len(fr_list)), np.zeros(len(fr_list)), -20*np.ones(len(fr_list))])), fmt='%.10f')
+        freqfile_data = np.transpose(np.array([np.append(1,fr_list), np.zeros(len(fr_list)+1), np.zeros(len(fr_list)+1), np.append(0,-20*np.ones(len(fr_list)))]))
+        np.savetxt("freqfile.txt", freqfile_data, fmt='%.10f')
 
     return fr_list, Qr_list, Qc_list

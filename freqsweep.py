@@ -1,12 +1,12 @@
 from __future__ import division
 import visa
 import numpy as np
-import math
-import cmath
+#import math
+#import cmath
 import matplotlib.pyplot as plt
 import h5py
 from powsweep import snapshot
-import datetime
+#import datetime
 
 def freqsweep(aly, fwinstart, fwinend, fwinsize, power, averfact, channel="S21", plotting=False):
     """

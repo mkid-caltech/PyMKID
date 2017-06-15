@@ -23,9 +23,9 @@ def snapshot(aly, fcenter, fspan, power, averfact=1, points=1601, channel='S21')
     aly.write('AUTO;')
     buffr = aly.query('OUTPDATA;')
     zm = np.loadtxt(buffr.splitlines(), delimiter = ',')
-    z = zm[:,0]+1j*zm[:,1]
-    f = np.arange(-(NumPts/2), (NumPts/2)+1, 1)*(fspan/NumPts) + fcenter
-    return f, z
+    z_data = zm[:,0]+1j*zm[:,1]
+    f_data = np.arange(-(NumPts/2), (NumPts/2)+1, 1)*(fspan/NumPts) + fcenter
+    return f_data, z_data
 
 def sweep_pow(fname, chan="S21", rewrite=False):
     rm =  visa.ResourceManager()
@@ -34,19 +34,20 @@ def sweep_pow(fname, chan="S21", rewrite=False):
     aly.write('FORM4;')
 
     with h5py.File(fname, "r+") as fyle:
-        f0list = np.array(fyle["{}/f0list".format(chan)])
+        fr_list = np.array(fyle["{}/fr_list".format(chan)])
         if rewrite == True:
-            fyle.__delitem__("{}/powsweeps".format(chan))
+            if "{}/powsweeps".format(chan) in fyle:
+                fyle.__delitem__("{}/powseeps".format(chan))
 
-    fspanray = 1.5e-3*np.ones(len(f0list))
+    fspanray = 1.5e-3*np.ones(len(fr_list))
     pows = np.arange(-30, -12, 2)
 
     for idpow in range(len(pows)):
         power = pows[idpow]
-        for idres in range(len(f0list)):
-            fcenter = f0list[idres]
+        for idres in range(len(fr_list)):
+            fcenter = fr_list[idres]
             fspan = fspanray[idres]
-            f, z = snapshot(aly, fcenter, fspan, power);
+            f_snap, z_snap = snapshot(aly, fcenter, fspan, power);
             with h5py.File(fname, "r+") as fyle:
-                fyle["{}/powsweeps/".format(chan)+"{:.5f}/".format(f0list[idres])+"_{}_f".format(abs(pows[idpow]))] = f
-                fyle["{}/powsweeps/".format(chan)+"{:.5f}/".format(f0list[idres])+"_{}_z".format(abs(pows[idpow]))] = z
+                fyle["{}/powsweeps/".format(chan)+"{:.5f}/".format(fr_list[idres])+"_{}_f".format(abs(pows[idpow]))] = f_snap
+                fyle["{}/powsweeps/".format(chan)+"{:.5f}/".format(fr_list[idres])+"_{}_z".format(abs(pows[idpow]))] = z_snap
