@@ -388,7 +388,7 @@ def finefit(f, z, tau0, numspan=1):
     #return f0, Q, Qi0, Qc, zc
     return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine
 
-def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
+def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False, freqfile=False):
     """
     sweep_fit fits data taken using save_scatter to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -546,5 +546,8 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", write=False):
                 fyle.__delitem__("{}/Qr_list".format(chan))
             fyle["{}/fr_list".format(chan)] = fr_list
             fyle["{}/Qr_list".format(chan)] = Qr_list
+
+    if freqfile == True:
+        np.savetxt("freqfile.txt", np.transpose(np.array([fr_list, np.zeros(len(fr_list)), np.zeros(len(fr_list)), -20*np.ones(len(fr_list))])), fmt='%.10f')
 
     return fr_list, Qr_list, Qc_list
