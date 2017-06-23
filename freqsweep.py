@@ -123,7 +123,7 @@ def freqsweep1(aly, fwinstart, fwinend, fwinsize, power, averfact, channel="S21"
 
     return np.array(f), np.array(z)
 
-def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfact=10, channels=["S21", "S22", "S12", "S11"], plotting=False):
+def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfact=10, channels=["S21", "S22", "S12", "S11"], GPIBnum=16, plotting=False):
     """
     uses freqsweep to preform a windowed frequency sweep on HP VNA channels
     Input parameters:
@@ -134,6 +134,7 @@ def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfa
         power: input power
         averfact: number of averages per window
         channels: list of channels to probe
+        GPIBnum: number corresponding to the VNA GPIB
         plotting: whether or not to display plots while data is taken
 
     Returns:
@@ -141,7 +142,8 @@ def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfa
     """
     # open GPIB connection to the VNA
     rm =  visa.ResourceManager()
-    aly = rm.open_resource('GPIB0::16::INSTR')
+    #aly = rm.open_resource('GPIB0::16::INSTR')
+    aly = rm.open_resource("GPIB0::{}::INSTR".format(GPIBnum))
 
     # make sure VNA is on and communicating in the correct ascii form
     aly.write('SOUPON;')
@@ -172,7 +174,7 @@ def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False
         transmission vs frequency plot for each channel
     """
     # interactive plot
-    plt.ion()
+    #plt.ion()
 
     # open and read file
     with h5py.File(fname, "r") as fyle:
