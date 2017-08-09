@@ -408,11 +408,22 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
 
     # Butterworth filter to remove features larger than n*nfreq
     nfreq = fwindow/(f[-1]-f[0])    # The
-    b, a = sig.butter(2, 3*nfreq, btype='highpass')
+    b, a = sig.butter(2, 5*nfreq, btype='highpass')
 
     # Zero phase digital filter
     az = abs(z)
+    plt.figure(11)
+    plt.plot(f,az)
     azn = -sig.filtfilt(b, a, az)
+    plt.figure(20)
+    plt.plot(f,azn)
+    plt.figure(21)
+    plt.plot(f,abs(azn))
+    dazn = f[1]-f[0]
+    dydx = np.gradient(azn, dazn)
+    plt.figure(30)
+    plt.plot(f,dydx)
+    plt.show()
 
     # set all negative azn values to zero
     low_values_indices = azn < 0
@@ -552,3 +563,111 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
         np.savetxt("freqfile.txt", freqfile_data, fmt='%.10f')
 
     return fr_list, Qr_list, Qc_list
+
+def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21", tryt=3):
+    # open file and read data
+    with h5py.File(fname, "r") as fyle:
+        f = np.array(fyle["{}/f".format(chan)])
+        z = np.array(fyle["{}/z".format(chan)])
+
+    # Butterworth filter to remove features larger than n*nfreq
+    nfreq = fwindow/(f[-1]-f[0])    # The
+    b, a = sig.butter(2, tryt*nfreq, btype='highpass')
+
+    # Zero phase digital filter
+    az = abs(z)
+
+    plt.figure(figsize=(10, 10))
+    fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
+    axarr[0].plot(f,abs(z))
+    orig_phase = np.angle(z)
+
+    for i in range(len(orig_phase)):
+        if i > 1 and orig_phase[i] > orig_phase[i-1] + 2:
+            orig_phase[i:] = orig_phase[i:] - 2*np.pi
+        if i > 1 and orig_phase[i] < orig_phase[i-1] - 2:
+            orig_phase[i:] = orig_phase[i:] + 2*np.pi
+
+    axarr[1].plot(f, orig_phase)
+    plt.show()
+
+    plt.figure(figsize=(10, 10))
+    fig, axarr = plt.subplots(nrows=3, sharex=True, num=1)
+    axarr[0].plot(f, sig.filtfilt(b, a, az))
+    filt_phase = sig.filtfilt(b, a, orig_phase)
+    axarr[1].plot(f, filt_phase)
+
+    avg_phase = abs(filt_phase)
+    for i in range(len(avg_phase)):
+        if i>20 and i<(len(avg_phase)-21):
+            avg_phase[i] = np.mean(abs(filt_phase[i-20:i+21]))
+
+    axarr[2].plot(f, avg_phase)
+    plt.show()
+
+    plt.figure(11)
+    plt.plot(np.fft.fft(az))
+    azn = -sig.filtfilt(b, a, az)
+    plt.figure(20)
+    plt.plot(np.fft.fft(azn))
+    plt.figure(21)
+    plt.plot(f,abs(azn))
+    plt.show()
+
+    # set all negative azn values to zero
+    low_values_indices = azn < 0
+    azn[low_values_indices] = 0
+
+    # plot azn with a horizontal line to show which peaks are above nsig sigma
+    plt.figure(figsize=(10, 10))
+    fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
+    axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
+    axarr[0].set_title('Transmission with Resonance Identification')
+    axarr[0].set_ylabel("|$S_{21}$| [dB]")
+    axarr[1].plot(f, azn)
+    axarr[1].set_xlabel("Frequency [GHz]")
+    bstd = np.std(azn)
+    curr_xlims = [min(f), max(f)]
+    nsigline =  bstd*nsig*np.array([1, 1])
+    axarr[1].plot(curr_xlims, nsigline, 'r-')
+
+    # initialize peaklist
+    peaklist = np.array([], dtype = int)
+
+    # initialize mn above max and mx below min
+    mn = max(azn)+np.inf
+    mx = -np.inf
+    mnpos = np.nan
+    mxpos = np.nan
+
+    lookformax = True
+    delta = nsig*bstd
+
+    # find peaks and add them to peaklist
+    for i in range(len(azn)):
+        cp = azn[i]
+        if cp >= mx:
+            mx = cp
+            mxpos = f[i]
+        if cp <= mn:
+            mn = cp
+            mnpos = f[i]
+        if lookformax == True:
+            if cp < (mx-delta):
+                fpos = np.argmin(abs(f-mxpos))
+                peaklist = np.append(peaklist, fpos)
+                mn = cp
+                mnpos = f[i]
+                lookformax = False
+        else:
+            if cp > (mn+delta):
+                mx = cp
+                mxpos = f[i]
+                lookformax = True
+
+    # plot the peak points from peaklist
+    axarr[1].plot(f[peaklist], azn[peaklist], 'gx', label=str(len(peaklist))+" resonances identified")
+    plt.legend()
+    Res_pdf = PdfPages(fname[:-3]+'.pdf')
+    Res_pdf.savefig()
+    plt.show()
