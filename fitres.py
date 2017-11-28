@@ -200,12 +200,12 @@ def fitphase(f, z, f0g, Qg, numspan=2):
     ang = (ang+2*np.pi) % (2*np.pi)
     fstep = (f[-1]-f[0])/(len(f)-1)
 
-    plt.figure()
-    plt.axhline(y=2*np.pi, color="black")
-    plt.axhline(y=1*np.pi, color="black")
-    plt.axhline(y=0, color="black")
-    plt.axhline(y=-1*np.pi, color="black")
-    plt.axhline(y=-2*np.pi, color="black")
+    #here#plt.figure()
+    #here#plt.axhline(y=2*np.pi, color="black")
+    #here#plt.axhline(y=1*np.pi, color="black")
+    #here#plt.axhline(y=0, color="black")
+    #here#plt.axhline(y=-1*np.pi, color="black")
+    #here#plt.axhline(y=-2*np.pi, color="black")
     #plt.plot(f, ang, '.-')
 
     #for i in range(len(ang)):
@@ -214,7 +214,7 @@ def fitphase(f, z, f0g, Qg, numspan=2):
     #    elif i > 1 and i < (len(ang)-1) and ang[i] < (ang[i-1] - np.pi) and ang[i] < (ang[i+1] - np.pi):
     #        ang[i] = ang[i] + 2*np.pi
 
-    plt.plot(f,ang,'.-')
+    #here#plt.plot(f,ang,'.-')
 
     #jumplist = np.array([1], dtype = int)
 
@@ -252,7 +252,7 @@ def fitphase(f, z, f0g, Qg, numspan=2):
     while np.mean(ang)<-np.pi:
         ang = ang + 2*np.pi
 
-    plt.plot(f, ang, '.-')
+    #here#plt.plot(f, ang, '.-')
     # estimate f0, Q and phi
     #hnumsmopts = int(math.floor(((f0g/Qg)/3)/fstep))
     #hnumsmopts = int(max(min(hnumsmopts, 20), 1))
@@ -289,16 +289,16 @@ def fitphase(f, z, f0g, Qg, numspan=2):
     # using robust(?) fit from curve fit
     if np.mean(ang[int(len(ang)/2):]) <= np.mean(ang[:int(len(ang)/2)]):
         fresult = opt.curve_fit(partial(phasefunc, sign=1), f, ang, p0=[Qg, f0g, phi,2], bounds=([0, f[0], -2*np.pi, 0],[10*Qg, f[-1], 2*np.pi, tan_max_height]))
-        plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3], sign=1))
+        #here#plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3], sign=1))
         #print 'if',
     else:
         fresult = opt.curve_fit(partial(phasefunc, sign=-1), f, ang, p0=[Qg, f0g, phi,2], bounds=([0, f[0], -2*np.pi, 0],[10*Qg, f[-1], 2*np.pi, tan_max_height]))
-        plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3], sign=-1))
+        #here#plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3], sign=-1))
         #print 'or',
 
     #print Qg, fresult[0][0]
     #plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3]))
-    plt.show()
+    #here#plt.show()
 
     return fresult[0], f
 
@@ -555,6 +555,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
         fwindow: half width of the frequency space window cut around each resonator before the resonator is fit
         chan: channel from save_scatter being analyzed
         rewrite: whether or not sweep_fit will save its fit data to the fname file and pdf
+        freqfile: whether or not sweep_fit will make a file with resonance locations (for Templar)
 
     Returns:
         fr_list, Qr_list, Qc_list (lists of values for each resonator) save to the fname file
