@@ -186,7 +186,7 @@ def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False
             plt.figure(chan)
             plt.title(chan)
             plt.xlabel('GHz')
-            plt.ylabel('DB')
+            plt.ylabel('dB')
             line_style = color+style
             plt.plot(np.array(f), zt, line_style, label=fname, linewidth=linewidth)
             if legend:
