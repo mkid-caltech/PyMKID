@@ -546,7 +546,7 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     #return fr_1, Q, Qi0, Qc, zc
     return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine
 
-def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=False):
+def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=False, additions=[]):
     """
     sweep_fit fits data taken using save_scatter to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -654,6 +654,11 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
     # initialize peaklist
     peaklist = np.array([], dtype = int)
 
+    # add the manually entered frequencies to peaklist
+    for added in additions:
+        peaklist = np.append(peaklist, np.argmin(abs(f-added)))
+    addlist = peaklist
+
     # initialize mn above max and mx below min
     #mn = +np.inf
     mx = -np.inf
@@ -686,6 +691,8 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
                 mx_pos = i
                 lookformax = True
 
+    peaklist = sorted(peaklist)
+
     # Plot the transmission and peaks
     plt.figure(figsize=(10, 10))
     fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
@@ -700,7 +707,8 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
     #axarr[1].plot(curr_xlims, nsigline, 'r-')
     axarr[1].axhline(y=nsig, color="red", label="nsig = "+str(nsig))
     axarr[1].axhline(y=gamma/bstd, color="green")
-    axarr[1].plot(f[peaklist], mfz[peaklist]/bstd, 'gs', label=str(len(peaklist))+" resonances identified")
+    axarr[1].plot(f[peaklist], mfz[peaklist]/bstd, 'gs', label=str(len(peaklist)-len(additions))+" resonances identified")
+    axarr[1].plot(f[addlist], mfz[addlist]/bstd, 'ys', label=str(len(addlist))+" resonances manually added")
     plt.legend()
     # Save to pdf if rewrite == True
     if rewrite == True:
@@ -794,7 +802,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
 
     return fr_list, Qr_list, Qc_list
 
-def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21"):
+def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21", additions=[]):
     # open file and read data
     with h5py.File(fname, "r") as fyle:
         f = np.array(fyle["{}/f".format(chan)])
@@ -815,6 +823,11 @@ def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21"):
 
     # Initialize the peaklist
     peaklist = np.array([], dtype = int)
+
+    # add the manually entered frequencies to peaklist
+    for added in additions:
+        peaklist = np.append(peaklist, np.argmin(abs(f-added)))
+    addlist = peaklist
 
     # Initialize mx below min
     mx = -np.inf
@@ -841,6 +854,8 @@ def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21"):
                 mx_pos = i
                 lookformax = True
 
+    peaklist = sorted(peaklist)
+
     # Plot the transmission and peaks
     plt.figure(figsize=(10, 10))
     fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
@@ -852,6 +867,7 @@ def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21"):
     axarr[1].set_xlabel("Frequency [GHz]")
     axarr[1].axhline(y=nsig, color="red")
     axarr[1].axhline(y=gamma/bstd, color="green")
-    axarr[1].plot(f[peaklist], mfz[peaklist]/bstd, 'gs', label=str(len(peaklist))+" resonances identified")
+    axarr[1].plot(f[peaklist], mfz[peaklist]/bstd, 'gs', label=str(len(peaklist)-len(additions))+" resonances identified")
+    axarr[1].plot(f[addlist], mfz[addlist]/bstd, 'ys', label=str(len(addlist))+" resonances manually added")
     plt.legend()
     plt.show()
