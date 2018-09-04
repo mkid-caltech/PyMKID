@@ -738,7 +738,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
             zrfit = resfunc3(fr_list[i], fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
             fit_down = resfunc3(f_curr, fr_list[i], 0.95*Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
             fit_up = resfunc3(f_curr, fr_list[i], 1.05*Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
-            fitwords = "$f_{r}$ = " + str(fr_list[i]) + "\n" + "$Q_{r}$ = " + str(Qr_list[i]) + "\n" + "$Q_{c}$ = " + str(Qc_list[i]) + "\n" + "$a$ = " + str(a_list[i]) + "\n" + "$\phi_{0}$ = " + str(phi_list[i]) + "\n" + r"$\tau$ = " + str(tau_list[i]) + "\n"
+            fitwords = "$f_{r}$ = " + str(fr_list[i]) + "\n" + "$Q_{r}$ = " + str(Qr_list[i]) + "\n" + "$Q_{c}$ = " + str(Qc_list[i]) + "\n" + "$Q_{i}$ = " + str((Qr_list[i]*Qc_list[i])/(Qc_list[i]-Qr_list[i])) + "\n" + "$a$ = " + str(a_list[i]) + "\n" + "$\phi_{0}$ = " + str(phi_list[i]) + "\n" + r"$\tau$ = " + str(tau_list[i]) + "\n"
 
             plt.figure(figsize=(10, 10))
 
