@@ -33,7 +33,7 @@ kappa1 = kappa.real #Sunil's note Eqn (85) (86)
 kappa2 = kappa.imag # nm^3
 gamma1 = -1. #thin film limit, Sunil's note Eqn (91) (92)
 gamma2 = 1.
-print "\tr1 = %.3f\n\tr2 = %.3f\n\tk1 = %.3f nm^3\n\tk2 = %.3f nm^3"%(gamma1,gamma2,kappa1,kappa2)
+print "\tgamma1 = %.3f\n\tgamma2 = %.3f\n\tkappa1 = %.3f nm^3\n\tkappa2 = %.3f nm^3"%(gamma1,gamma2,kappa1,kappa2)
 
 n_qp_mean_Q = 1./(Q_qp*alpha*gamma1*kappa1) #Sunil's note Eqn (121)
 n_qp_mean_fr = n_qp_mean_Q #use Q_qp-derived n_qp_mean to calculate df_r
@@ -46,7 +46,7 @@ print "df_r/f_r = %.3E, i.e. df_r = %.3f MHz"%(df_r/f_r, df_r/1E6)
 
 n_qp_read = n_qp_mean_Q-n_qp_thermal
 tau_max = 1/(R*n_qp_mean_Q)
-eta_read = (-n_qp_read*V_sc)*(Delta/(tau_max*P_read))
+eta_read = (n_qp_read*Delta*V_sc)/(tau_max*P_read)
 ## from Jonas' note Eqn (22)
 ## n_qp* = 1/R/tau_max
 ## n_qp_read = eta_read*P_read/Delta*tau_qp/V_sc
