@@ -190,6 +190,6 @@ def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False
             line_style = color+style
             plt.plot(np.array(f), zt, line_style, label=fname, linewidth=linewidth)
             if legend:
-                plt.legend(bbox_to_anchor=(1,1.1))
+                plt.legend(loc="best")
             #plt.pause(0.02)
     plt.show()
