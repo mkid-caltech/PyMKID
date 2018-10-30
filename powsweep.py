@@ -5,58 +5,124 @@ import numpy as np
 #import cmath
 import matplotlib.pyplot as plt
 import h5py
+import re
+import pandas as pd
+import time
+import datetime
+#import time
 
-def snapshot(aly, fcenter, fspan, power, averfact=1, points=1601, channel='S21'):
-    NumPts = points-1
-    aly.write(channel+';')
-    aly.write('POIN {:d};'.format(points))
-
-    aly.write('POWE {:.2f} DB;'.format(power))
-    aly.write('CENT {:.9f} GHz;'.format(fcenter))
-    aly.write('SPAN {:.9f} GHz;'.format(fspan))
-
+def snapshot(aly, fcenter, fspan, averfact=10, points=1601, channel='S21'):
     aly.write('AVERFACT {:d};'.format(averfact))
     aly.write('AVERO ON;')
+    aly.write(channel+';')
+
+    aly.write('CENT {:.9f} GHz;'.format(fcenter))
+    aly.write('SPAN {:.9f} GHz;'.format(fspan))
     aly.write('OPC?; NUMG {:d};'.format(averfact))
+
     aly.read()
 
     aly.write('AUTO;')
     buffr = aly.query('OUTPDATA;')
     zm = np.loadtxt(buffr.splitlines(), delimiter = ',')
     z_data = zm[:,0]+1j*zm[:,1]
+    NumPts = points-1
     f_data = np.arange(-(NumPts/2), (NumPts/2)+1, 1)*(fspan/NumPts) + fcenter
     return f_data, z_data
 
-def sweep_pow(fname, chan="S21", rewrite=False, plotit=False):
+def sweep_pow(fname, pow_list=np.arange(-35, -10, 5), points=1601, chan="S21",  plotit=False):
+    pow_timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
     rm =  visa.ResourceManager()
     aly = rm.open_resource('GPIB0::16::INSTR')
+    aly2 = rm.open_resource('GPIB0::12::INSTR')
+    #temp = aly2.query('RDGK? 1')
+    aly.timeout = 25000 #25 seconds, a 1601 point sweep takes too long for the standard timeout
     aly.write('SOUPON;')
     aly.write('FORM4;')
+    aly.write('POIN {:.9f};'.format(points))
 
     with h5py.File(fname, "r+") as fyle:
         fr_list = np.array(fyle["{}/fr_list".format(chan)])
-        if rewrite == True:
-            if "{}/powsweeps".format(chan) in fyle:
-                fyle.__delitem__("{}/powsweeps".format(chan))
+        print fr_list
 
-    fspanray = 1.5e-3*np.ones(len(fr_list))
-    pows = np.arange(5, 6, 15)
+    fspanray = 1.5e-3*np.ones(len(fr_list)) # GHz, 1.5 MHz
 
     if plotit == True:
-        plt.figure()
+        plt.figure(1)
 
-    for idpow in range(len(pows)):
-        power = pows[idpow]
-        for idres in range(len(fr_list)):
-            fcenter = fr_list[idres]
-            fspan = fspanray[idres]
-            f_snap, z_snap = snapshot(aly, fcenter, fspan, power, averfact=10)
+    for power in pow_list:
+        aly.write('POWE {:.2f} DB;'.format(power))
+        df = pd.DataFrame()
+        for idres, (fcenter, fspan) in enumerate(zip(fr_list, fspanray)):
+            temp = aly2.query('RDGK? 1')
+            print 'Acquiring: {:.5f} {} {:+.2f}'.format(fcenter,temp,power)
+            f_snap, z_snap = snapshot(aly, fcenter, fspan, averfact=10, points=points)
             if plotit == True:
                 plt.plot(f_snap, 20*np.log10(np.abs(np.array(z_snap))))
-            if rewrite == True:
-                with h5py.File(fname, "r+") as fyle:
-                    fyle["{}/powsweeps/".format(chan)+"{:.5f}/".format(fr_list[idres])+"_{}_f".format(abs(pows[idpow]))] = f_snap
-                    fyle["{}/powsweeps/".format(chan)+"{:.5f}/".format(fr_list[idres])+"_{}_z".format(abs(pows[idpow]))] = z_snap
+            df_temp = pd.DataFrame()
+            df_temp["f"] = f_snap
+            df_temp["z"] = z_snap
+            df_temp["T"] = temp
+            df_temp["f0"] = fcenter
+            df_temp["resID"] = idres
+            df_temp["power"] = power
+            df = df.append(df_temp)
+            # if rewrite == True:
+            #     with h5py.File(fname, "r+") as fyle:
+            #         fyle["{:.5f}/{:.5f}/{:+.2f}/f".format(fcenter,temp,power)] = f_snap
+            #         fyle["{:.5f}/".format(fr_list[idres])+"{:.5f}/".format(temp)+"{:+.2f}/".format(power)+"z"] = z_snap
+        df.to_hdf(fname, key="/powsweep/{}/{:+.2f}".format(pow_timestamp,power))
+
+def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, chan="S21",  plotit=False):
+    temp_timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
+    rm =  visa.ResourceManager()
+    aly = rm.open_resource('GPIB0::16::INSTR')
+    aly2 = rm.open_resource('GPIB0::12::INSTR')
+    #temp = aly2.query('RDGK? 1')
+    aly.timeout = 25000 #25 seconds, a 1601 point sweep takes too long for the standard timeout
+    aly.write('SOUPON;')
+    aly.write('FORM4;')
+    aly.write('POIN {:.9f};'.format(points))
+
+    with h5py.File(fname, "r+") as fyle:
+        fr_list = np.array(fyle["{}/fr_list".format(chan)])
+        print fr_list
+
+    fspanray = 1.5e-3*np.ones(len(fr_list)) # GHz, 1.5 MHz
 
     if plotit == True:
+        plt.figure(1)
+    mode = 1 #PID control
+    HRNG = {80.e-3:2,
+    150.e-3:3,
+    1.e5:4}
+    aly.write('POWE {:.2f} DB;'.format(power))
+    for nominal_temp in temp_list:
+        aly2.write("HTRRNG {}".format(min([v for k,v in HRNG.items() if nominal_temp < k])))
+        aly2.write('SETP {:.3f};'.format(nominal_temp))
+        aly2.write('CMODE %d' % mode )
+        time.sleep(120)
+        df = pd.DataFrame()
+        for idres, (fcenter, fspan) in enumerate(zip(fr_list, fspanray)):
+            temp = aly2.query('RDGK? 1')
+            print 'Acquiring: {:.5f} {} {:+.2f}'.format(fcenter,temp,power)
+            f_snap, z_snap = snapshot(aly, fcenter, fspan, averfact=10, points=points)
+            if plotit == True:
+                plt.plot(f_snap, 20*np.log10(np.abs(np.array(z_snap))))
+            df_temp = pd.DataFrame()
+            df_temp["f"] = f_snap
+            df_temp["z"] = z_snap
+            df_temp["T"] = temp
+            df_temp["f0"] = fcenter
+            df_temp["resID"] = idres
+            df_temp["power"] = power
+            df = df.append(df_temp)
+            # if rewrite == True:
+            #     with h5py.File(fname, "r+") as fyle:
+            #         fyle["{:.5f}/{:.5f}/{:+.2f}/f".format(fcenter,temp,power)] = f_snap
+            #         fyle["{:.5f}/".format(fr_list[idres])+"{:.5f}/".format(temp)+"{:+.2f}/".format(power)+"z"] = z_snap
+        df.to_hdf(fname, key="/tempsweep/{}/{:+.2f}".format(temp_timestamp,nominal_temp)) # Causes complaints about invalid Python identifiers ("2018-10-29-09-10" and "+0.07")
+    aly2.write("HTRRNG 0")
+    if plotit == True:
         plt.show()
+    return
