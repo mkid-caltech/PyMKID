@@ -324,7 +324,7 @@ def roughfit(f, z, finit, tau0, numspan=2):
     # rotation and traslation to center
     z2 = (zc-z1)*np.exp(-1j*np.angle(zc, deg=False))
 
-    print Qr_est,
+    #print Qr_est,
 
     # trim data and fit phase
     fresult, ft = fitphase(f, z2, f0_est, Qr_est, numspan=numspan)
@@ -407,9 +407,9 @@ def resfunc4(f, fr, Qr, Qc, amag, aarg, phi0, neg_tau):
     y = realy+imagy
     return y
 
-def resfunc5(f, fr, Qr, Qc, zinfmag, zinfarg, phi0, tau):
+def resfunc5(f, fr, Qr, Qc, zinfmag, zinfarg, phi0, tau, Imtau):
     x = abs(f)
-    complexy = zinfmag*np.exp(1j*zinfarg)*np.exp(2j*np.pi*(x-fr)*(-tau))*(1-(((Qr/Qc)*np.exp(1j*phi0))/(1+(2j*Qr*(x-fr)/fr))))
+    complexy = zinfmag*np.exp(1j*zinfarg)*np.exp(2j*np.pi*(x-fr)*(-tau-1j*Imtau))*(1-(((Qr/Qc)*np.exp(1j*phi0))/(1+(2j*Qr*(x-fr)/fr))))
     complexy = np.array(complexy)
     realy = complexy.real
     realy[f>0] = 0
@@ -439,7 +439,7 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     """
     # find starting parameters using a rough fit
     fr_1, Qr_1, phi_1, zd, zinf, Qc_1, Qi_1, Qi0 = roughfit(f, z, fr_0, tau_0, numspan=numspan)
-    #print Q, Qc_1
+    print Qi_1
 
     #if Q <1000 or Qc_1<3000:
     #    Q = 10000
@@ -485,7 +485,7 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
 
     #fparams, fcov = opt.curve_fit(resfunc4, xdata, ydata, p0=[fr_1, Qr_1, Qc_1, abs(a_1), np.angle(a_1*np.exp(-2j*np.pi*fr_1*(-tau_0))), phi_2, -tau_0], bounds=([fr_1-(fwindow/2),0,0,0,-2*np.pi,-2*np.pi,-np.inf],[fr_1+(fwindow/2),+np.inf,+np.inf,+np.inf,+2*np.pi,+2*np.pi,0]))
     #fparams, fcov = opt.curve_fit( partial(resfunc2, f1=fr_1), xdata, ydata, p0=[fr_1, Qr_1, Qc_1, zinf.real, zinf.imag, phi_2, -tau_0], bounds=([fr_1-fwindow,0,0,-np.inf,-np.inf,-2*np.pi,-np.inf],[fr_1+fwindow,+np.inf,+np.inf,+np.inf,+np.inf,2*np.pi,+np.inf]))
-    fparams, fcov = opt.curve_fit(resfunc5, xdata, ydata, p0=[fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0], bounds=([(fr_1-fwindow), 0, 0, 0, -2*np.pi, -2*np.pi, 0], [(fr_1+fwindow), np.inf, np.inf, np.inf, 2*np.pi, 2*np.pi, np.inf]))
+    fparams, fcov = opt.curve_fit(resfunc5, xdata, ydata, p0=[fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, 0], bounds=([(fr_1-fwindow), 0, 0, 0, -2*np.pi, -2*np.pi, 0, -20], [(fr_1+fwindow), np.inf, np.inf, np.inf, 2*np.pi, 2*np.pi, np.inf, 20]))
 
     #plt.figure()
     #plt.plot(xdata, ydata, '.')
@@ -504,12 +504,12 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     Qr_fine = fparams[1]
     Qc_fine = fparams[2]
     #a_fine = (fparams[3] + 1j*fparams[4])*np.exp(-2j*np.pi*fr_1*fparams[6])
-    a_fine = fparams[3]*np.exp(1j*fparams[4])*np.exp(2j*np.pi*fparams[0]*fparams[6])
+    a_fine = fparams[3]*np.exp(1j*fparams[4])*np.exp(2j*np.pi*fparams[0]*(fparams[6]+1j*fparams[7]))
     #a_fine = fparams[3]*np.exp(1j*fparams[4])
     phi_fine = fparams[5]
-    tau_fine = fparams[6]
+    tau_fine = fparams[6] + 1j*fparams[7]
 
-    print Qr_1, Qr_fine
+    #print Qr_1, Qr_fine
 
     # find Qc, unsure where this equation originates
     #Qc = (abs(zinf)/abs(zd))*Q
@@ -565,80 +565,6 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
         f = np.array(fyle["{}/f".format(chan)])
         z = np.array(fyle["{}/z".format(chan)])
 
-    # Butterworth filter to remove features larger than n*nfreq
-    #nfreq = fwindow/(f[-1]-f[0])    # The
-    #b, a = sig.butter(2, 5*nfreq, btype='highpass')
-
-    # Zero phase digital filter
-    #az = abs(z)
-    #plt.figure(11)
-    #plt.plot(f,az)
-    #azn = -sig.filtfilt(b, a, az)
-    #plt.figure(20)
-    #plt.plot(f,azn)
-    #plt.figure(21)
-    #plt.plot(f,abs(azn))
-    #dazn = f[1]-f[0]
-    #dydx = np.gradient(azn, dazn)
-    #plt.figure(30)
-    #plt.plot(f,dydx)
-    #plt.show()
-
-    # set all negative azn values to zero
-    #low_values_indices = azn < 0
-    #azn[low_values_indices] = 0
-
-    # plot azn with a horizontal line to show which peaks are above nsig sigma
-    #plt.figure(figsize=(10, 10))
-    #fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
-    #axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
-    #axarr[0].set_title('Transmission with Resonance Identification')
-    #axarr[0].set_ylabel("|$S_{21}$| [dB]")
-    #axarr[1].plot(f, azn)
-    #axarr[1].set_xlabel("Frequency [GHz]")
-    #bstd = np.std(azn)
-    #curr_xlims = [min(f), max(f)]
-    #nsigline =  bstd*nsig*np.array([1, 1])
-    #axarr[1].plot(curr_xlims, nsigline, 'r-')
-
-    # initialize peaklist
-    #peaklist = np.array([], dtype = int)
-
-    # initialize mn above max and mx below min
-    #mn = max(azn)+np.inf
-    #mx = -np.inf
-    #mn_pos = np.nan
-    #mx_pos = np.nan
-
-    #lookformax = True
-    #delta = nsig*bstd
-
-    # find peaks and add them to peaklist
-    #for i in range(len(azn)):
-    #    cp = azn[i]
-    #    if cp >= mx:
-    #        mx = cp
-    #        mx_pos = i
-    #    if cp <= mn:
-    #        mn = cp
-    #        mn_pos = i
-    #    if lookformax == True:
-    #        if cp < (mx-delta):
-    #            peak_pos = mx_pos
-    #            peaklist = np.append(peaklist, peak_pos)
-    #            mn = cp
-    #            mn_pos = i
-    #            lookformax = False
-    #    else:
-    #        if cp > (mn+delta):
-    #            mx = cp
-    #            mx_pos = i
-    #            lookformax = True
-
-    # plot the peak points from peaklist
-    #axarr[1].plot(f[peaklist], azn[peaklist], 'gx', label=str(len(peaklist))+" resonances identified")
-    #plt.legend()
-
     nfreq = 1/(2*((f[-1]-f[0])/(len(f)-1)))    # The nyquist frequency [s]
     evfreq = 1/(2*fwindow)    # The frequency corresponding to the expected window size [s]
     b, a = sig.butter(2, evfreq/nfreq, btype='highpass')
@@ -667,7 +593,7 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
     mx_pos = np.nan
     lookformax = False
     delta = nsig*bstd
-    gamma = np.mean(mfz[mfz<delta])
+    gamma = 3*np.mean(mfz[mfz<delta])
 
     # find peaks and add them to peaklist
     for i in range(len(mfz)):
@@ -723,14 +649,14 @@ def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=F
     Qc_list = np.zeros(len(peaklist))
     a_list = np.array([0.+0j]*len(peaklist))
     phi_list = np.zeros(len(peaklist))
-    tau_list = np.zeros(len(peaklist))
+    tau_list = np.array([0.+0j]*len(peaklist))
 
     # define the windows around each peak. and then use finefit to find the parameters
     for i in range(len(peaklist)):
         curr_pts = [(f >= (f[peaklist[i]]-fwindow)) & (f <= (f[peaklist[i]]+fwindow))]
         f_curr = f[curr_pts]
         z_curr = z[curr_pts]
-        print i,
+        print 'Resonance #{}'.format(str(i)),
         fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i] = finefit(f_curr, z_curr, f[peaklist[i]], 30, fwindow, numspan=2)
 
         if rewrite == True:
@@ -835,7 +761,7 @@ def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21", additions=[]):
     mx_pos = np.nan
     lookformax = False
     delta = nsig*bstd
-    gamma = np.mean(mfz[mfz<delta])
+    gamma = 3*np.mean(mfz[mfz<delta])
 
     # Find peaks and add them to peaklist
     for i in range(len(mfz)):
@@ -871,3 +797,134 @@ def sweep_test(fname, nsig=3, fwindow=5e-4, chan="S21", additions=[]):
     axarr[1].plot(f[addlist], mfz[addlist]/bstd, 'ys', label=str(len(addlist))+" resonances manually added")
     plt.legend()
     plt.show()
+
+
+def sweep_fit2(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=False, additions=[], KIDs=80):
+    with h5py.File(fname, "r") as fyle:
+        f = np.array(fyle["{}/f".format(chan)])
+        z = np.array(fyle["{}/z".format(chan)])
+    
+    nfreq = 1/(2*((f[-1]-f[0])/(len(f)-1)))    # The nyquist frequency [s]
+    evfreq = 1/(2*fwindow)    # The frequency corresponding to the expected window size [s]
+    b, a = sig.butter(2, evfreq/nfreq, btype='highpass')
+    mfz0 = np.sqrt(sig.filtfilt(b, a, z.real)**2 + sig.filtfilt(b, a, z.imag)**2)  # The magnitude of filtered z
+        
+    # Do some averaging
+    mfz = (mfz0+np.append(0,mfz0[:-1])+np.append(mfz0[1:],0)+np.append([0,0],mfz0[:-2])+np.append(mfz0[2:],[0,0]))/5
+    mfz = (mfz+np.append(0,mfz[:-1])+np.append(mfz[1:],0))/3
+    for pie in range(KIDs):
+
+        
+        # Record the standard deviation of mfz
+        bstd = np.std(mfz)
+        
+        # initialize peaklist
+        peaklist = np.array([], dtype = int)
+        
+        # add the manually entered frequencies to peaklist
+        for added in additions:
+            peaklist = np.append(peaklist, np.argmin(abs(f-added)))
+        addlist = peaklist
+
+        peaklist = [np.argmax(mfz)]
+
+        if True == True:
+            plt.figure(1)
+            plt.plot(f, mfz)
+            plt.plot(f[peaklist], mfz[peaklist], 'gs')
+            plt.show()
+        
+        # initialize the parameter lists
+        fr_list = np.zeros(len(peaklist))
+        Qr_list = np.zeros(len(peaklist))
+        Qc_list = np.zeros(len(peaklist))
+        a_list = np.array([0.+0j]*len(peaklist))
+        phi_list = np.zeros(len(peaklist))
+        tau_list = np.array([0.+0j]*len(peaklist))
+        
+        # define the windows around each peak. and then use finefit to find the parameters
+        for i in range(len(peaklist)):
+            curr_pts = [(f >= (f[peaklist[i]]-fwindow)) & (f <= (f[peaklist[i]]+fwindow))]
+            f_curr = f[curr_pts]
+            z_curr = z[curr_pts]
+            print pie,
+            fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i] = finefit(f_curr, z_curr, f[peaklist[i]], 30, fwindow, numspan=2)
+
+        fit = resfunc3(f_curr, fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
+        zrfit = resfunc3(fr_list[i], fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
+        fit_down = resfunc3(f_curr, fr_list[i], 0.95*Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
+        fit_up = resfunc3(f_curr, fr_list[i], 1.05*Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i])
+        fitwords = "$f_{r}$ = " + str(fr_list[i]) + "\n" + "$Q_{r}$ = " + str(Qr_list[i]) + "\n" + "$Q_{c}$ = " + str(Qc_list[i]) + "\n" + "$Q_{i}$ = " + str((Qr_list[i]*Qc_list[i])/(Qc_list[i]-Qr_list[i])) + "\n" + "$a$ = " + str(a_list[i]) + "\n" + "$\phi_{0}$ = " + str(phi_list[i]) + "\n" + r"$\tau$ = " + str(tau_list[i]) + "\n"
+        
+        if True == False:
+            plt.figure(2, figsize=(10, 10))
+
+            plt.subplot(2,2,1)
+            plt.plot(f_curr, 20*np.log10(np.abs(z_curr)),'.', label='Data')
+            plt.plot(f_curr, 20*np.log10(np.abs(fit_down)), label='Fit 0.95Q')
+            plt.plot(f_curr, 20*np.log10(np.abs(fit)), label='Fit 1.00Q')
+            plt.plot(f_curr, 20*np.log10(np.abs(fit_up)), label='Fit 1.05Q')
+            plt.plot(fr_list[i], 20*np.log10(np.abs(zrfit)), '*', markersize=10, color='red', label='$f_{r}$')
+            plt.title("resonance " + str(pie) + " at " + str(int(10000*fr_list[i])/10000) + " GHz")
+            plt.xlabel("Frequency [GHz]")
+            plt.xticks([min(f_curr),max(f_curr)])
+            plt.ylabel("|$S_{21}$| [dB]")
+            plt.legend(bbox_to_anchor=(2, -0.15))
+
+            plt.subplot(2,2,2)
+            plt.gca().set_aspect('equal', adjustable='box')
+            plt.plot(z_curr.real, z_curr.imag,'.', label='Data')
+            plt.plot(fit_down.real, fit_down.imag,  label='Fit 0.95Q')
+            plt.plot(fit.real, fit.imag,  label='Fit 1.00Q')
+            plt.plot(fit_up.real, fit_up.imag, label='Fit 1.05Q')
+            plt.plot(zrfit.real, zrfit.imag, '*', markersize=10, color='red',  label='Fr')
+            plt.xlabel("$S_{21}$ real")
+            plt.xticks([min(z_curr.real),max(z_curr.real)])
+            plt.ylabel("$S_{21}$ imaginary")
+            plt.yticks([min(z_curr.imag),max(z_curr.imag)])
+            
+            plt.figtext(0.6, 0.085, fitwords)
+            plt.figtext(0.55, 0.26, r"$S_{21}(f)=ae^{-2\pi jf\tau}\left [ 1-\frac{Q_{r}/Q_{c}e^{j\phi_{0}}}{1+2jQ_{r}(\frac{f-f_{r}}{f_{r}})} \right ]$", fontsize=20)
+            
+            plt.subplot(2,2,3, projection="polar")
+            zi_no_cable = removecable(f_curr, z_curr, tau_list[i], 0)/(a_list[i])
+            zi_normalized = 1-((1 - zi_no_cable)/np.exp(1j*(phi_list[i])))
+            plt.plot(np.angle(zi_normalized), np.absolute(zi_normalized),'.')
+            zfit_no_cable = removecable(f_curr, fit, tau_list[i], 0)/(a_list[i])
+            zfit_normalized = 1-((1 - zfit_no_cable)/np.exp(1j*(phi_list[i])))
+            plt.plot(np.angle(zfit_normalized), np.absolute(zfit_normalized), color='red')
+            zrfit_no_cable = removecable(fr_list[i], zrfit, tau_list[i], 0)/(a_list[i])
+            zrfit_normalized = 1-((1 - zrfit_no_cable)/np.exp(1j*(phi_list[i])))
+            plt.plot(np.angle(zrfit_normalized), np.absolute(zrfit_normalized),'*', markersize=10, color='red')
+
+            plt.show()
+
+        curr_pts_ind = np.array(range(len(f)))
+        #curr_pts_ind = curr_pts_ind[curr_pts]
+        bandwidths = 20
+        justthis = resfunc3(f, fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i].real)*np.exp(2*np.pi*fr_list[i]*tau_list[i].imag)
+        print 'final', resfunc3(f, fr_list[i], Qr_list[i], Qc_list[i], a_list[i], phi_list[i], tau_list[i].real)
+        print tau_list[i].imag
+        print np.exp(2*np.pi*fr_list[i]*tau_list[i].imag)
+        print justthis
+        
+        if True == False:
+            plt.figure(3)
+            plt.plot(f, 20*np.log10(np.abs(np.array(z))))
+            plt.plot(f, 20*np.log10(np.abs(np.array(justthis))))
+            plt.show()
+
+
+        mfz0 = mfz0 - np.sqrt(sig.filtfilt(b, a, justthis.real)**2 + sig.filtfilt(b, a, justthis.imag)**2)    # The magnitude of independently filtered z
+        mfz0[mfz0<0] = 0
+
+        # Do some averaging...
+        mfz = (mfz0+np.append(0,mfz0[:-1])+np.append(mfz0[1:],0)+np.append([0,0],mfz0[:-2])+np.append(mfz0[2:],[0,0]))/5
+        mfz = (mfz+np.append(0,mfz[:-1])+np.append(mfz[1:],0))/3
+
+#z = np.delete(z,curr_pts_ind[np.bitwise_and(f>(fr_list[i]*(1-(bandwidths/(2*Qr_list[i])))), f<(fr_list[i]*(1+(bandwidths/(2*Qr_list[i])))))])
+#       mfz = np.delete(mfz,curr_pts_ind[np.bitwise_and(f>(fr_list[i]*(1-(bandwidths/(2*Qr_list[i])))), f<(fr_list[i]*(1+(bandwidths/(2*Qr_list[i])))))])
+#       f = np.delete(f,curr_pts_ind[np.bitwise_and(f>(fr_list[i]*(1-(bandwidths/(2*Qr_list[i])))), f<(fr_list[i]*(1+(bandwidths/(2*Qr_list[i])))))])
+#bandwidths = 20
+#       plt.plot(f[np.bitwise_and(f>(fr_list[i]*(1-(bandwidths/(2*Qr_list[i])))), f<(fr_list[i]*(1+(bandwidths/(2*Qr_list[i])))))], 20*np.log10(np.abs(np.array(z[np.bitwise_and(f>(fr_list[i]*(1-(bandwidths/(2*Qr_list[i])))), f<(fr_list[i]*(1+(bandwidths/(2*Qr_list[i])))))]))))
+
