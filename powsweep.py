@@ -72,6 +72,8 @@ def sweep_pow(fname, pow_list=np.arange(-35, -10, 5), points=1601, chan="S21",  
             #         fyle["{:.5f}/{:.5f}/{:+.2f}/f".format(fcenter,temp,power)] = f_snap
             #         fyle["{:.5f}/".format(fr_list[idres])+"{:.5f}/".format(temp)+"{:+.2f}/".format(power)+"z"] = z_snap
         df.to_hdf(fname, key="/powsweep/{}/{:+.2f}".format(pow_timestamp,power))
+    if plotit == True:
+        plt.show()
 
 def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, chan="S21",  plotit=False):
     temp_timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
@@ -93,9 +95,7 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
     if plotit == True:
         plt.figure(1)
     mode = 1 #PID control
-    HRNG = {80.e-3:2,
-    150.e-3:3,
-    1.e5:4}
+    HRNG = {80.e-3:2, 150.e-3:3, 1.e5:4}
     aly.write('POWE {:.2f} DB;'.format(power))
     for nominal_temp in temp_list:
         aly2.write("HTRRNG {}".format(min([v for k,v in HRNG.items() if nominal_temp < k])))
@@ -121,8 +121,40 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
             #     with h5py.File(fname, "r+") as fyle:
             #         fyle["{:.5f}/{:.5f}/{:+.2f}/f".format(fcenter,temp,power)] = f_snap
             #         fyle["{:.5f}/".format(fr_list[idres])+"{:.5f}/".format(temp)+"{:+.2f}/".format(power)+"z"] = z_snap
-        df.to_hdf(fname, key="/tempsweep/{}/{:+.2f}".format(temp_timestamp,nominal_temp)) # Causes complaints about invalid Python identifiers ("2018-10-29-09-10" and "+0.07")
+        df.to_hdf(fname, key="/tempsweep/{}/{:+.3f}".format(temp_timestamp,nominal_temp)) # Causes complaints about invalid Python identifiers ("2018-10-29-09-10" and "+0.07")
     aly2.write("HTRRNG 0")
     if plotit == True:
         plt.show()
-    return
+
+def plot_pow(fname):
+    with h5py.File(fname, "r") as fyle:
+        for timestamp in fyle["powsweep"].keys():
+            print timestamp
+            plt.figure()
+            powervals = np.array(fyle["powsweep/"+timestamp].keys())
+            powervals = powervals.astype(np.float)
+            print sorted(powervals)
+            for power in fyle["powsweep/"+timestamp].keys():
+                print power
+                df = pd.read_hdf(fname, key="powsweep/"+timestamp+"/"+power)
+                resID = df['resID']
+                f = df['f']
+                z = df['z']
+                plt.plot(f, 20*np.log10(np.abs(np.array(z))))
+                #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            plt.show()
+
+def plot_temp(fname):
+    with h5py.File(fname, "r") as fyle:
+        for timestamp in fyle["tempsweep"].keys():
+            print timestamp
+            plt.figure()
+            for temperature in fyle["tempsweep/"+timestamp].keys():
+                print temperature
+                df = pd.read_hdf(fname, key="tempsweep/"+timestamp+"/"+temperature)
+                resID = df['resID']
+                f = df['f']
+                z = df['z']
+                plt.plot(f, 20*np.log10(np.abs(np.array(z))))
+            #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            plt.show()
