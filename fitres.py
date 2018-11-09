@@ -121,14 +121,16 @@ def circle2(z):
     r = R_2b
     residue = residu_2b
 
-    #plt.figure()
-    #plt.gca().set_aspect('equal', adjustable='box')
-    #plt.plot(x, y)
-    #plt.plot(x[int(len(x)/2)], y[int(len(x)/2)],"*")
     #t = np.arange(0,2*np.pi,0.002)
     #xcirc = center_2b[0]+r*np.cos(t)
     #ycirc = center_2b[1]+r*np.sin(t)
+    #plt.figure()
+    #plt.gca().set_aspect('equal', adjustable='box')
     #plt.plot(xcirc,ycirc)
+    #plt.plot(x, y, 'o')
+    #plt.plot(x[int(len(x)/2)], y[int(len(x)/2)],"*")
+    #plt.plot(zc.real, zc.imag,"*")
+    #plt.plot([zc.real,zc.real+R_2b],[zc.imag,zc.imag])
     #plt.show()
 
     return residue, zc, r
@@ -242,10 +244,10 @@ def fitphase(f, z, f0g, Qg, numspan=2):
     #plt.plot(f,ang,'.-')
 
     for i in range(len(ang)):
-        if i > 1 and ang[i] > (ang[i-1] + np.pi):
-            ang[i:] = ang[i:] - 2*np.pi
-        elif i > 1 and ang[i] < (ang[i-1] - np.pi):
-            ang[i:] = ang[i:] + 2*np.pi
+        if i > 0 and ang[i] > (ang[i-1] + np.pi):
+            ang[i:] += -2*np.pi
+        elif i > 0 and ang[i] < (ang[i-1] - np.pi):
+            ang[i:] += +2*np.pi
 
     while np.mean(ang)>np.pi:
         ang = ang - 2*np.pi
@@ -289,16 +291,13 @@ def fitphase(f, z, f0g, Qg, numspan=2):
     # using robust(?) fit from curve fit
     if np.mean(ang[int(len(ang)/2):]) <= np.mean(ang[:int(len(ang)/2)]):
         fresult = opt.curve_fit(partial(phasefunc, sign=1), f, ang, p0=[Qg, f0g, phi,2], bounds=([0, f[0], -2*np.pi, 0],[10*Qg, f[-1], 2*np.pi, tan_max_height]))
-        #here#plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3], sign=1))
-        #print 'if',
     else:
         fresult = opt.curve_fit(partial(phasefunc, sign=-1), f, ang, p0=[Qg, f0g, phi,2], bounds=([0, f[0], -2*np.pi, 0],[10*Qg, f[-1], 2*np.pi, tan_max_height]))
-        #here#plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3], sign=-1))
-        #print 'or',
 
-    #print Qg, fresult[0][0]
+    #plt.figure()
+    #plt.plot(f,ang,'.-')
     #plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3]))
-    #here#plt.show()
+    #plt.show()
 
     return fresult[0], f
 
@@ -312,8 +311,8 @@ def roughfit(f, z, finit, tau0, numspan=2):
     f0_est, Qr_est, id_f0, id_BW = estpara(f,z1, finit)
 
     # fit circle using data points f0_est +- 2*f0_est/Qr_est
-    id1 = max(id_f0-int(id_BW/2), 0)
-    id2 = min(id_f0+int(id_BW/2), len(f))
+    id1 = max(id_f0-int(id_BW/3), 0)
+    id2 = min(id_f0+int(id_BW/3), len(f))
 
     if len(range(id1, id2)) < 10:
         id1 = 0
@@ -323,6 +322,12 @@ def roughfit(f, z, finit, tau0, numspan=2):
 
     # rotation and traslation to center
     z2 = (zc-z1)*np.exp(-1j*np.angle(zc, deg=False))
+
+    #plt.figure()
+    #plt.polar(np.angle(z),np.absolute(z))
+    #plt.polar(np.angle(z1),np.absolute(z1))
+    #plt.polar(np.angle(z2),np.absolute(z2))
+    #plt.show()
 
     #print Qr_est,
 
@@ -341,10 +346,11 @@ def roughfit(f, z, finit, tau0, numspan=2):
     zd = -zc/abs(zc)*np.exp(-1j*phi)*r*2
     zinf = zc - zd/2
 
-    Qc = (abs(zinf)/abs(zd))*Q
-    #Qc = Q*(abs(zc)+r)/(2*r)
+    Qc = (abs(zinf)/abs(zd))*Q  # Allows negative Qi, but gets best fits somehow
+    #Qc = Q*(abs(zc)+r)/(2*r)   # Taken from Gao E.13, but gives negative Qi and doesn't fit as well
+    #Qc = Q/(2*r)               # Taken from Gao 4.40, has positive Qi but fits terribly
     Qi = 1/((1/Q)-(1/Qc))
-
+    
     zf0 = zinf + zd
 
     # projection of zf0 into zinf
@@ -439,7 +445,7 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     """
     # find starting parameters using a rough fit
     fr_1, Qr_1, phi_1, zd, zinf, Qc_1, Qi_1, Qi0 = roughfit(f, z, fr_0, tau_0, numspan=numspan)
-    print Qi_1
+    print Qi_1,
 
     #if Q <1000 or Qc_1<3000:
     #    Q = 10000
@@ -476,9 +482,8 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     phi_2 = np.angle(-zd/zinf, deg=False)
 
     #plt.figure()
-    #plt.plot(xdata,ydata,'.')
-    #plt.plot(xdata,resfunc2(xdata,fr_1, Qr_1, Qc_1, zinf.real, zinf.imag, phi_2, -tau_0, f1=fr_1))
-    #plt.plot(xdata,resfunc4(xdata,fr_1, Qr_1, Qc_1, abs(np.array(a_1*np.exp(-2j*np.pi*fr_1*(-tau_0)))), np.angle(a_1*np.exp(-2j*np.pi*fr_1*(-tau_0)), deg=False), phi_2, -tau_0))
+    #plt.plot(abs(xdata),ydata,'.')
+    #plt.plot(abs(xdata),resfunc5(xdata,fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, 0))
     #plt.show()
 
     #print max(abs(resfunc2(xdata,fr_1, Qr_1, Qc_1, zinf.real, zinf.imag, phi_2, -tau_0, f1=fr_1)-resfunc4(xdata,fr_1, Qr_1, Qc_1, np.array(a_1*np.exp(-2j*np.pi*fr_1*(-tau_0))).real, np.array(a_1*np.exp(-2j*np.pi*fr_1*(-tau_0))).imag, phi_2, -tau_0)))
@@ -515,6 +520,7 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     #Qc = (abs(zinf)/abs(zd))*Q
     # find Qi (all Q that isn't Qc)
     Qi_fine = 1/((1/Qr_fine)-(1/Qc_fine))
+    print Qi_fine
 
 
     # the next section finds Qi0 and other parameters. I'm not sure where any of these equations come from or why we want these parameters

@@ -144,17 +144,18 @@ def plot_pow(fname):
                 #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
             plt.show()
 
-def plot_temp(fname):
+def plot_temp(fname, top = 4):
     with h5py.File(fname, "r") as fyle:
         for timestamp in fyle["tempsweep"].keys():
             print timestamp
             plt.figure()
-            for temperature in fyle["tempsweep/"+timestamp].keys():
-                print temperature
-                df = pd.read_hdf(fname, key="tempsweep/"+timestamp+"/"+temperature)
-                resID = df['resID']
-                f = df['f']
-                z = df['z']
-                plt.plot(f, 20*np.log10(np.abs(np.array(z))))
-            #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            for temperature in np.array(fyle["tempsweep/"+timestamp].keys()):
+                if temperature.astype(np.float) <= top:
+                    print temperature.astype(np.float)
+                    df = pd.read_hdf(fname, key="tempsweep/"+timestamp+"/"+temperature)
+                    resID = df['resID']
+                    f = df['f']
+                    z = df['z']
+                    plt.plot(f, 20*np.log10(np.abs(np.array(z))))
+                    #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
             plt.show()
