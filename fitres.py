@@ -424,7 +424,7 @@ def resfunc5(f, fr, Qr, Qc, zinfmag, zinfarg, phi0, tau, Imtau):
     y = realy + imagy
     return y
 
-def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
+def finefit(f, z, fr_0, tau_0, fwindow, numspan=2, fit_test=False):
     """
     finefit fits f and z to the resonator model described in Jiansong's thesis
     Input parameters:
@@ -491,7 +491,8 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     #fparams, fcov = opt.curve_fit(resfunc4, xdata, ydata, p0=[fr_1, Qr_1, Qc_1, abs(a_1), np.angle(a_1*np.exp(-2j*np.pi*fr_1*(-tau_0))), phi_2, -tau_0], bounds=([fr_1-(fwindow/2),0,0,0,-2*np.pi,-2*np.pi,-np.inf],[fr_1+(fwindow/2),+np.inf,+np.inf,+np.inf,+2*np.pi,+2*np.pi,0]))
     #fparams, fcov = opt.curve_fit( partial(resfunc2, f1=fr_1), xdata, ydata, p0=[fr_1, Qr_1, Qc_1, zinf.real, zinf.imag, phi_2, -tau_0], bounds=([fr_1-fwindow,0,0,-np.inf,-np.inf,-2*np.pi,-np.inf],[fr_1+fwindow,+np.inf,+np.inf,+np.inf,+np.inf,2*np.pi,+np.inf]))
     fparams, fcov = opt.curve_fit(resfunc5, xdata, ydata, p0=[fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, 0], bounds=([(fr_1-fwindow), 0, 0, 0, -2*np.pi, -2*np.pi, 0, -20], [(fr_1+fwindow), np.inf, np.inf, np.inf, 2*np.pi, 2*np.pi, np.inf, 20]))
-
+    yexpet = resfunc5(xdata, *fparams)
+    chisq = sum(((yexpet - ydata)**2))
     #plt.figure()
     #plt.plot(xdata, ydata, '.')
     #plt.plot(xdata, resfunc2(xdata, fr_1, Q, Qc_1, zinf.real, zinf.imag, phi_2, -tau_0, f1=f1))
@@ -550,7 +551,10 @@ def finefit(f, z, fr_0, tau_0, fwindow, numspan=2):
     #plt.plot(f, 20*np.log10(np.abs(z)), '.')
 
     #return fr_1, Q, Qi0, Qc, zc
-    return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine
+    if fit_test:
+        return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine, chisq
+    else:
+        return fr_fine, Qr_fine, Qc_fine, a_fine, phi_fine, tau_fine
 
 def sweep_fit(fname, nsig=3, fwindow=5e-4, chan="S21", rewrite=False, freqfile=False, additions=[]):
     """
