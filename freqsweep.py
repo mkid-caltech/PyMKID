@@ -35,6 +35,7 @@ def freqsweep(aly, fwinstart, fwinend, fwinsize, power, averfact, channel="S21",
     aly.write('AVERFACT {:d};'.format(averfact))
     aly.write('AVERO ON;')
     aly.write(channel+';')
+    aly.write('POIN {:.9f};'.format(201))
 
     # initialize f and z
     f = []
