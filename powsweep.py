@@ -75,7 +75,10 @@ def sweep_pow(fname, pow_list=np.arange(-35, -10, 5), points=1601, chan="S21",  
     if plotit == True:
         plt.show()
 
-def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, chan="S21",  plotit=False):
+def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, chan="S21",  plotit=False, windows=1):
+    if max(temp_list) >= 2:
+        print "Max temperature in temp_list is greater than 2K. Cancelling."
+        raise SystemExit
     temp_timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
     rm =  visa.ResourceManager()
     aly = rm.open_resource('GPIB0::16::INSTR')
@@ -90,7 +93,8 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
         fr_list = np.array(fyle["{}/fr_list".format(chan)])
         print fr_list
 
-    fspanray = 1.5e-3*np.ones(len(fr_list)) # GHz, 1.5 MHz
+    fspanray = 2.0e-3*np.ones(len(fr_list)) # GHz, 2.0 MHz
+    fspanray = fspanray/windows # Size of each window in GHz
 
     if plotit == True:
         plt.figure(1)
@@ -106,7 +110,12 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
         for idres, (fcenter, fspan) in enumerate(zip(fr_list, fspanray)):
             temp = aly2.query('RDGK? 1')
             print 'Acquiring: {:.5f} {} {:+.2f}'.format(fcenter,temp,power)
-            f_snap, z_snap = snapshot(aly, fcenter, fspan, averfact=10, points=points)
+            f_snap = np.array([])
+            z_snap = np.array([])
+            for window in range(windows):
+                f_snap0, z_snap0 = snapshot(aly, fcenter-fspan*((0.5*windows)-window-0.5), fspan, averfact=10, points=points)
+                f_snap = np.append(f_snap,f_snap0)
+                z_snap = np.append(z_snap,z_snap0)
             if plotit == True:
                 plt.plot(f_snap, 20*np.log10(np.abs(np.array(z_snap))))
             df_temp = pd.DataFrame()

@@ -27,7 +27,8 @@ def freqsweep(aly, fwinstart, fwinend, fwinsize, power, averfact, channel="S21",
         z: complex impedence
     """
     # choose number of points per window
-    NumPts = 200 # actual number of points is 201
+    points = 801
+    NumPts = points-1 # actual number of points is 201
     fwinres = fwinsize/NumPts
 
     # set power, averaging number, channel, and turn averaging on,
@@ -35,7 +36,7 @@ def freqsweep(aly, fwinstart, fwinend, fwinsize, power, averfact, channel="S21",
     aly.write('AVERFACT {:d};'.format(averfact))
     aly.write('AVERO ON;')
     aly.write(channel+';')
-    aly.write('POIN {:.9f};'.format(201))
+    aly.write('POIN {:.9f};'.format(points))
 
     # initialize f and z
     f = []
@@ -145,6 +146,7 @@ def save_scatter(fname, fwinstart=1, fwinend=5, fwinsize=0.01, power=-40, averfa
     rm =  visa.ResourceManager()
     #aly = rm.open_resource('GPIB0::16::INSTR')
     aly = rm.open_resource("GPIB0::{}::INSTR".format(GPIBnum))
+    aly.timeout = 25000 #25 seconds, a 1601 point sweep takes too long for the standard timeout
 
     # make sure VNA is on and communicating in the correct ascii form
     aly.write('SOUPON;')
