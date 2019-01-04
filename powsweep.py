@@ -165,6 +165,7 @@ def plot_temp(fname, top = 4):
                     resID = df['resID']
                     f = df['f']
                     z = df['z']
-                    plt.plot(f, 20*np.log10(np.abs(np.array(z))))
+                    plt.plot(f, 20*np.log10(np.abs(np.array(z))), label=temperature)
                     #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            plt.legend()
             plt.show()

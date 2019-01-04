@@ -2,9 +2,13 @@ from __future__ import division
 import visa
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import time
+import datetime
 
-def specshot(GPIBnum='13', fcenter=3.5, fspan=1):
+def specshot(GPIBnum='13', fcenter=3.5, fspan=1, fname=None):
+    timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
+    df = pd.DataFrame()
     rm =  visa.ResourceManager()
     aly = rm.open_resource('GPIB0::'+GPIBnum+'::INSTR')
     aly.timeout = 25000 #25 seconds
@@ -18,11 +22,14 @@ def specshot(GPIBnum='13', fcenter=3.5, fspan=1):
 
     aly.write('TA?;')
     buffr = aly.read()
-    amplitude = np.loadtxt(buffr.splitlines(), delimiter = ',')
-    frequency = np.arange((fcenter-0.5*fspan), (fcenter+0.5*fspan), fspan/len(amplitude))
+    df["amplitude"] = np.loadtxt(buffr.splitlines(), delimiter = ',')
+    df["frequency"] = np.arange((fcenter-0.5*fspan), (fcenter+0.5*fspan), fspan/len(df["amplitude"]))
+    df["RBW"] = RBW
+    if fname:
+        df.to_hdf(fname, key="/{}".format(timestamp))
 
     plt.figure()
-    plt.plot(frequency, amplitude)
+    plt.plot(df["frequency"], df["amplitude"])
     plt.show()
 
 if __name__ == "__main__":
