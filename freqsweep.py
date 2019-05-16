@@ -27,11 +27,12 @@ def freqsweep(aly, fwinstart, fwinend, fwinsize, power, averfact, channel="S21",
         z: complex impedence
     """
     # choose number of points per window
-    points = 801
+    points = 1601
     NumPts = points-1 # actual number of points is 201
     fwinres = fwinsize/NumPts
 
     # set power, averaging number, channel, and turn averaging on,
+    aly.timeout = 25000
     aly.write('POWE {:f} DB;'.format(power))
     aly.write('AVERFACT {:d};'.format(averfact))
     aly.write('AVERO ON;')
@@ -195,4 +196,93 @@ def replot(fname, channels=["S21", "S22", "S12", "S11"], color='b', legend=False
             if legend:
                 plt.legend(loc="best")
             #plt.pause(0.02)
+    plt.show()
+
+def replot2(fname, fname2, channels=["S21", "S22", "S12", "S11"], color='b', legend=False, style="-", linewidth=1):
+    """
+    170323 Yen-Yung Chang
+    add style and linewidth arguments
+    """
+    """
+    16xxxx Taylor
+    replots the graphs shown during save_scatter(plotting=True) for file fname
+    Input parameters:
+        fname: desired name for the input file. eg "YY160622.h5". Should be made using save_scatter
+        channels: list of channels to plot. Each must have been probed during save_scatter
+
+    Returns:
+        transmission vs frequency plot for each channel
+    """
+    # interactive plot
+    #plt.ion()
+
+    # open and read file
+    with h5py.File(fname, "r") as fyle:
+        for chan in channels:
+            f = fyle["{}/f".format(chan)]
+            z = fyle["{}/z".format(chan)]
+            zt = 20*np.log10(np.abs(np.array(z)))
+            # make plots
+            plt.figure(chan)
+            plt.title(chan)
+            plt.xlabel('GHz')
+            plt.ylabel('dB')
+            line_style = color+style
+            plt.plot(np.array(f), zt, line_style, label=fname, linewidth=linewidth)
+            if legend:
+                plt.legend(loc="best")
+            #plt.pause(0.02)
+    # open and read file
+    with h5py.File(fname2, "r") as fyle:
+        for chan in channels:
+            f = fyle["{}/f".format(chan)]
+            z = fyle["{}/z".format(chan)]
+            zt = 20*np.log10(np.abs(np.array(z)))
+            # make plots
+            plt.figure(chan)
+            plt.title(chan)
+            plt.xlabel('GHz')
+            plt.ylabel('dB')
+            line_style = color+style
+            plt.plot(np.array(f), zt, line_style, label=fname, linewidth=linewidth, color='orange')
+            if legend:
+                plt.legend(loc="best")
+            #plt.pause(0.02)
+    plt.show()
+
+def replot_all(fname_all, channels=["S21", "S22", "S12", "S11"], legend=False, style="-", linewidth=1):
+    """
+    170323 Yen-Yung Chang
+    add style and linewidth arguments
+    """
+    """
+    16xxxx Taylor
+    replots the graphs shown during save_scatter(plotting=True) for file fname
+    Input parameters:
+        fname: desired name for the input file. eg "YY160622.h5". Should be made using save_scatter
+        channels: list of channels to plot. Each must have been probed during save_scatter
+
+    Returns:
+        transmission vs frequency plot for each channel
+    """
+    # interactive plot
+    #plt.ion()
+
+    # open and read file
+    for fname in fname_all:
+        with h5py.File(fname, "r") as fyle:
+            for chan in channels:
+                f = fyle["{}/f".format(chan)]
+                z = fyle["{}/z".format(chan)]
+                zt = 20*np.log10(np.abs(np.array(z)))
+                # make plots
+                plt.figure(chan)
+                plt.title(chan)
+                plt.xlabel('GHz')
+                plt.ylabel('dB')
+                line_style = style
+                plt.plot(np.array(f), zt, line_style, label=fname, linewidth=linewidth)
+                if legend:
+                    plt.legend(loc="best")
+                #plt.pause(0.02)
     plt.show()

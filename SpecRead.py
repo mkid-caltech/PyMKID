@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import time
 import datetime
+import sys
 
 def specshot(GPIBnum='13', fcenter=3.5, fspan=1, fname=None):
     timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
@@ -33,4 +34,7 @@ def specshot(GPIBnum='13', fcenter=3.5, fspan=1, fname=None):
     plt.show()
 
 if __name__ == "__main__":
-    specshot()
+    fcenter_in = float(sys.argv[1])
+    fspan_in = float(sys.argv[2])
+    fname_in = sys.argv[3]
+    specshot(fcenter = fcenter_in, fspan = fspan_in, fname = fname_in)
