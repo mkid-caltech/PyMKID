@@ -140,25 +140,31 @@ def plot_pow(fname):
         for timestamp in fyle["powsweep"].keys():
             print timestamp
             plt.figure()
-            powervals = np.array(fyle["powsweep/"+timestamp].keys())
-            powervals = powervals.astype(np.float)
-            print sorted(powervals)
-            for power in fyle["powsweep/"+timestamp].keys():
+            powernams = np.array(fyle["powsweep/"+timestamp].keys())
+            powervals = powernams.astype(np.float)
+            #print sorted(powervals)
+            #print powervals.argsort()
+            powernams = powernams[powervals.argsort()]
+            for power in powernams:
                 print power
                 df = pd.read_hdf(fname, key="powsweep/"+timestamp+"/"+power)
                 resID = df['resID']
                 f = df['f']
                 z = df['z']
-                plt.plot(f, 20*np.log10(np.abs(np.array(z))))
+                plt.plot(f, 20*np.log10(np.abs(np.array(z))), label=power)
                 #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            plt.legend()
             plt.show()
 
-def plot_temp(fname, top = 4):
+def plot_temp(fname, top=4, together=False):
     with h5py.File(fname, "r") as fyle:
         for timestamp in fyle["tempsweep"].keys():
             print timestamp
-            plt.figure()
-            for temperature in np.array(fyle["tempsweep/"+timestamp].keys()):
+            plt.figure(1)
+            temperatures = np.array(fyle["tempsweep/"+timestamp].keys())
+            temperatures = temperatures[temperatures!='MB']
+            temperatures = temperatures[temperatures!='RES']
+            for temperature in temperatures:
                 if temperature.astype(np.float) <= top:
                     print temperature.astype(np.float)
                     df = pd.read_hdf(fname, key="tempsweep/"+timestamp+"/"+temperature)
@@ -167,5 +173,9 @@ def plot_temp(fname, top = 4):
                     z = df['z']
                     plt.plot(f, 20*np.log10(np.abs(np.array(z))), label=temperature)
                     #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            if not together:
+                plt.legend()
+                plt.show()
+        if together:
             plt.legend()
             plt.show()
