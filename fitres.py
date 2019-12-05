@@ -16,7 +16,7 @@ def removecable(f, z, tau, f1):
     z_no_cable = np.array(z)*np.exp(2j*np.pi*(np.array(f)-f1)*tau)
     return z_no_cable
 
-def estpara(f, z, finit):
+def estpara(f, z, fr_0):
     """
     returns:
         f0_est:  The estimated center frequency for this resonance
@@ -25,55 +25,55 @@ def estpara(f, z, finit):
         id_BW:   The 3dB bandwidth in index number space
     """
 
-    realfit = np.polyfit(f,z.real,1)
-    imagfit = np.polyfit(f,z.imag,1)
+    edge_data_f = np.hstack((f[:int(len(f)/10)],f[-int(len(f)/10):]))
+    edge_data_z = np.hstack((z[:int(len(f)/10)],z[-int(len(f)/10):]))
+
+    realfit = np.polyfit(edge_data_f,edge_data_z.real,1)
+    imagfit = np.polyfit(edge_data_f,edge_data_z.imag,1)
     zfinder = np.sqrt((z.real-(realfit[1]+f*realfit[0]))**2+(z.imag-(imagfit[1]+f*imagfit[0]))**2)
-    zfinder = (zfinder+np.append(1,zfinder[:-1])+np.append(zfinder[1:],1)+np.append([1,1],zfinder[:-2])+np.append(zfinder[2:],[1,1]))/5
+    edge_val = np.mean(zfinder)
+    zfinder = (zfinder+np.append(edge_val,zfinder[:-1])+np.append(zfinder[1:],edge_val)+np.append([edge_val,edge_val],zfinder[:-2])+np.append(zfinder[2:],[edge_val,edge_val]))/5
     #zfinder = (zfinder+np.append(1,zfinder[:-1])+np.append(zfinder[1:],1)+np.append([1,1],zfinder[:-2])+np.append(zfinder[2:],[1,1]))/5
     #zfinder = (zfinder+np.append(1,zfinder[:-1])+np.append(zfinder[1:],1))/3
-    left_trim = np.argmin(zfinder[f<finit])
-    right_trim = np.argmin(abs(f-finit)) + np.argmin(zfinder[f>=finit])
+    left_trim = np.argmin(zfinder[f<fr_0])
+    right_trim = np.argmin(abs(f-fr_0)) + np.argmin(zfinder[f>=fr_0])
     zfinder = zfinder - min(zfinder[left_trim], zfinder[right_trim])
     id_f0 = left_trim + np.argmax(zfinder[left_trim:right_trim+1])
-    z0_est = zfinder[id_f0]
-    z_3db = z0_est/2
-    id_3db_left = left_trim + np.argmin(abs(zfinder[left_trim:id_f0]-z_3db))
-    id_3db_right = id_f0 + np.argmin(abs(zfinder[id_f0:right_trim+1]-z_3db))
+
+    id_BW_left = left_trim + np.argmin(abs(abs(z[left_trim:id_f0]-z[id_f0])-abs(z[left_trim:id_f0]-np.mean(edge_data_z))))
+    id_BW_right = id_f0 + np.argmin(abs(abs(z[id_f0:right_trim+1]-z[id_f0])-abs(z[id_f0:right_trim+1]-np.mean(edge_data_z))))
 
     if False:
-        plt.figure()
+        plt.figure(1)
+        #plt.plot(f_f0_finder,abs(dz_f0_finder))
         plt.plot(f[left_trim:right_trim+1], abs(z[left_trim:right_trim+1]),'.')
         plt.plot(f, zfinder, '.')
         plt.plot(f[left_trim:right_trim+1], zfinder[left_trim:right_trim+1], '.')
-        plt.axvline(x=finit)
-        plt.axvline(x=f[id_f0], color="green")
-        plt.axvline(x=f[id_3db_left], color="red")
-        plt.axvline(x=f[id_3db_right], color="red")
+        plt.axvline(x=fr_0)
+        plt.axvline(x=f[id_f0], c="g")
+        #plt.axvline(x=f[id_3db_left], color="red")
+        #plt.axvline(x=f[id_3db_right], color="red")
+        plt.axvline(x=f[id_BW_left], c="r")
+        plt.axvline(x=f[id_BW_right], c="r")
         plt.axhline(y=0)
-        plt.axhline(y=z_3db, color="red")
+        #plt.axhline(y=z_3db, color="red")
+
+        plt.figure(2)
+        plt.axvline(x=0, color='gray')
+        plt.axhline(y=0, color='gray')
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.plot(z.real,z.imag)
+        plt.plot(realfit[1]+f*realfit[0],imagfit[1]+f*imagfit[0])
+        plt.plot(z[id_f0].real,z[id_f0].imag,'o',c='g')
+        plt.plot(z[id_BW_left].real,z[id_BW_left].imag,'o',c='r')
+        plt.plot(z[id_BW_right].real,z[id_BW_right].imag,'o',c='r')
         plt.show()
 
     f0_est = f[id_f0]
-    id_BW = 2*np.mean([abs(id_f0-id_3db_left), abs(id_f0-id_3db_right)])
-    Qr_est = f0_est/(2*np.mean([abs(f[id_f0]-f[id_3db_left]), abs(f[id_f0]-f[id_3db_right])]))
-
-    #z_front_avg = np.mean(z[:10])
-    #z_back_avg = np.mean(z[-10:])
-    #z_avg = np.mean([z_front_avg, z_back_avg])
-
-    #id_f0 = max(np.argmax(abs(np.array(z)-z_avg)),1)
-
-    #z0_est = z[id_f0]
-    #f0_est = f[id_f0]
-    #z_3db = abs(z_avg - z0_est)/np.sqrt(2)
-    #zleft = z[:id_f0]
-    #zright = z[id_f0:]
-
-    #id_3db_left = np.argmin(abs(abs(abs(zleft-z_avg)) - z_3db))
-    #id_3db_right = np.argmin(abs(abs(abs(zright-z_avg)) - z_3db))
-    #id_BW = 2*max(abs(id_f0 - id_3db_left), abs(id_3db_right))
-    #Qr_est = f0_est/(id_BW*(f[1]-f[0]))
-    #Qr_est = f0_est/(2*max(abs(f[id_f0]-f[id_3db_left]), abs(f[id_3db_right+id_f0]-f[id_f0])))
+    #id_BW = 2*np.mean([abs(id_f0-id_3db_left), abs(id_f0-id_3db_right)])
+    id_BW = id_BW_right-id_BW_left
+    #Qr_est = f0_est/(2*np.mean([abs(f[id_f0]-f[id_3db_left]), abs(f[id_f0]-f[id_3db_right])]))
+    Qr_est = f0_est/(f[id_BW_right]-f[id_BW_left])
 
     return f0_est, Qr_est, id_f0, id_BW
 
@@ -116,15 +116,13 @@ def circle2(z):
     residu_2b = sum((Ri_2b - R_2b)**2)    # residual?
 
     zc =  center_2b[0]+center_2b[1]*1j
-    r = R_2b
-    residue = residu_2b
 
     t = np.arange(0,2*np.pi,0.002)
-    xcirc = center_2b[0]+r*np.cos(t)
-    ycirc = center_2b[1]+r*np.sin(t)
+    xcirc = center_2b[0]+R_2b*np.cos(t)
+    ycirc = center_2b[1]+R_2b*np.sin(t)
 
     if False:
-        plt.figure()
+        plt.figure(1)
         plt.axvline(x=0, color='gray')
         plt.axhline(y=0, color='gray')
         plt.gca().set_aspect('equal', adjustable='box')
@@ -135,17 +133,46 @@ def circle2(z):
         plt.plot([zc.real,zc.real+R_2b],[zc.imag,zc.imag])
         plt.show()
 
-    return residue, zc, r
+    return residu_2b, zc, R_2b
 
-def fid(f, f0):
-    loci = np.argmin(abs(f-f0))
-    return loci
+def fitphase2(f,z,zc,fr,Qr,z_off):
+    z_E3 = z*np.exp(-1j*np.angle(z_off))
+    zc_E3 = zc*np.exp(-1j*np.angle(z_off))
+    z_off_E3 = z_off*np.exp(-1j*np.angle(z_off))
+    phi = np.pi + np.angle(zc_E3-z_off_E3)
+    phi = np.angle(np.exp(1j*phi))
+    z_no_phi = (z_E3-zc_E3)*np.exp(-1j*phi)
+
+    def no_phi_eq(f_F,fr_F,Qr_F):
+        return 4*Qr*(1-f_F/fr_F)/(1-4*Qr_F*Qr_F*((1-f_F/fr_F)**2))
+
+    presults, pcov = opt.curve_fit(no_phi_eq,f,z_no_phi.imag/z_no_phi.real,p0=[fr,Qr])
+    #print presults
+
+    if False:
+        plt.figure(1)
+        plt.axvline(x=0, color='gray')
+        plt.axhline(y=0, color='gray')
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.plot(z_E3.real,z_E3.imag)
+        plt.plot(zc_E3.real,zc_E3.imag,'*')
+        plt.plot(z_off_E3.real,z_off_E3.imag,'o',fillstyle='none',markersize=15)
+        plt.plot(z_no_phi.real,z_no_phi.imag)
+
+        plt.figure(2)
+        plt.plot(f,z_no_phi.imag/z_no_phi.real)
+        #plt.plot(f,no_phi_eq(f,fr,Qr))
+        plt.plot(f,no_phi_eq(f,presults[0],presults[1]))
+
+        plt.show()
+
+    return presults[1], presults[0], phi
 
 def trimdata(f, z, f0, Q, numspan=2):
-    f0id = fid(f, f0)
-    idspan =  (f0/Q)/((f[-1]-f[0])/(len(f)-1))
-    idstart = int(math.floor(max(f0id-(idspan*numspan), 0)))
-    idstop  = int(math.floor(min(f0id+(idspan*numspan), len(f))))
+    f0id = np.argmin(abs(f-f0))
+    ind_BW =  (f0/Q)/((f[-1]-f[0])/(len(f)-1))
+    idstart = int(math.floor(max(f0id-(ind_BW*numspan), 0)))
+    idstop  = int(math.floor(min(f0id+(ind_BW*numspan), len(f))))
     fb = f[idstart:idstop]
     zb = z[idstart:idstop]
     return fb, zb
@@ -155,11 +182,12 @@ def phasefunc(f, Qr, fr, phi, amplitude, sign=1):
     argz = -phi-amplitude*np.arctan(sign*2*Qr*((f-fr)/fr))
     return argz
 
-def fitphase(f, z, f0g, Qg, numspan=2, resnum=None, plotting=True):
+def fitphase(f, z, f0g, Qg):
     argz = np.angle(z, deg=False)
     fstep = (f[-1]-f[0])/(len(f)-1)
 
-    if False:
+    fitphase_plotting = False
+    if fitphase_plotting:
         plt.figure(3)
         plt.axhline(y=2*np.pi, color="black")
         plt.axhline(y=1*np.pi, color="0.25")
@@ -172,12 +200,9 @@ def fitphase(f, z, f0g, Qg, numspan=2, resnum=None, plotting=True):
         if i > 1 and abs(argz[i]-argz[i-1]) > (0.5*np.pi):
             fresult = opt.curve_fit(partial(phasefunc, sign=1),f[:i],argz[:i],p0=[Qg, f0g, np.pi,2],bounds=([0, min(f[0],f[-1]), -2*np.pi, 0],[10*Qg, max(f[0],f[-1]), 2*np.pi, max(2, ((max(argz)-min(argz))/np.pi))]))
             guide = phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3])
-            if plotting:
-                plt.plot(f, phasefunc(f, Qg, f0g, np.pi, 2), label='guess')
-                plt.plot(f, guide, label='adjuster fit')
             argz[i:] += -2*np.pi*round((argz[i]-guide[i+1])/(2*np.pi))
 
-    if False:
+    if fitphase_plotting:
         plt.plot(f, argz, '.-', label='adjusted')
 
     while np.mean(argz)>np.pi:
@@ -185,7 +210,7 @@ def fitphase(f, z, f0g, Qg, numspan=2, resnum=None, plotting=True):
     while np.mean(argz)<-np.pi:
         argz = argz + 2*np.pi
 
-    if False:
+    if fitphase_plotting:
         plt.plot(f, argz, '.-', label='adjusted+shifted')
 
     phi0 = -np.mean(argz)
@@ -198,61 +223,61 @@ def fitphase(f, z, f0g, Qg, numspan=2, resnum=None, plotting=True):
     else:
         fresult = opt.curve_fit(partial(phasefunc, sign=-1), f, argz, p0=[Qg, f0g, phi0, 2], bounds=([0, min(f[0],f[-1]), -2*np.pi, 0],[10*Qg, max(f[0],f[-1]), 2*np.pi, tan_max_height]))
 
-    if False:
+    if fitphase_plotting:
         plt.plot(f, phasefunc(f,fresult[0][0],fresult[0][1],fresult[0][2],fresult[0][3],sign=1), '-', label='fit')
         plt.legend()
         plt.show()
 
-    return fresult[0], f
+    return fresult[0][0],fresult[0][1],fresult[0][2]
 
-def roughfit(f, z, finit, tau0, numspan=2, resnum=None, plotting=True):
+def roughfit(f, z, fr_0):
+
+    edge_data_f = np.hstack((f[:int(len(f)/100)],f[-int(len(f)/100):]))
+    edge_data_z = np.hstack((z[:int(len(f)/100)],z[-int(len(f)/100):]))
+
+    id_f0 = np.argmin(abs(f-fr_0))
+
+    tau_fit = np.polyfit(edge_data_f-f[id_f0],np.angle(edge_data_z/z[id_f0]),1)
+    tau_1 = tau_fit[0]/(-2*np.pi)
+
+    if False:
+        plt.plot(edge_data_f-f[id_f0],np.angle(edge_data_z/z[id_f0]),'.')
+        plt.plot(edge_data_f-f[id_f0],tau_fit[0]*(edge_data_f-f[id_f0])+tau_fit[1])
+        plt.show()
+
+    tau_fit = np.polyfit(edge_data_f-f[id_f0],np.log(abs(edge_data_z/z[id_f0])),1)
+    Imtau_1 = tau_fit[0]/(2*np.pi)
 
     # remove cable term
+    z1 = removecable(f, z, tau_1+1j*Imtau_1, fr_0)
+
     if False:
-        f0_est0, Qr_est0, id_f00, id_BW0 = estpara(f,z, finit)
-        z_edges = np.append(z[:int(id_f00-2*id_BW0)],z[int(id_f00+2*id_BW0):])
-        f_edges = np.append(f[:int(id_f00-2*id_BW0)],f[int(id_f00+2*id_BW0):])
-        edge_angle_fit = np.polyfit(f_edges,np.angle(z_edges),1)
-        edge_angle_line = edge_angle_fit[1]+f_edges*edge_angle_fit[0]
+        #print tau_1
         plt.figure(1)
-        plt.ylabel('Im(z)')
         plt.axvline(x=0, color='gray')
         plt.axhline(y=0, color='gray')
         plt.gca().set_aspect('equal', adjustable='box')
-        plt.plot(z.real,z.imag,'.')
-        plt.plot(z[:int(id_f00-2*id_BW0)].real,z[:int(id_f00-2*id_BW0)].imag,'.')
-        plt.plot(z[int(id_f00+2*id_BW0):].real,z[int(id_f00+2*id_BW0):].imag,'.')
+        plt.plot(z.real,z.imag)
+        plt.plot(z1.real,z1.imag)
         plt.figure(2)
-        plt.ylabel('abs(z)')
         plt.plot(f,abs(z))
-        plt.plot(f[:int(id_f00-2*id_BW0)],abs(z[:int(id_f00-2*id_BW0)]))
-        plt.plot(f[int(id_f00+2*id_BW0):],abs(z[int(id_f00+2*id_BW0):]))
-        plt.figure(3)
-        plt.ylabel('angle(z)')
-        plt.plot(f,np.angle(z))
-        plt.plot(f[:int(id_f00-2*id_BW0)],np.angle(z[:int(id_f00-2*id_BW0)]))
-        plt.plot(f[int(id_f00+2*id_BW0):],np.angle(z[int(id_f00+2*id_BW0):]))
-        plt.plot(f_edges,edge_angle_line,label=edge_angle_fit[0]/(-2*np.pi))
-        plt.legend()
-        plt.show()
-    z1 = removecable(f, z, tau0, finit)
+        plt.plot(f,abs(z1))
+        #plt.show()
 
     # estimate f0 (pretty good), Q (very rough)
-    f0_est, Qr_est, id_f0, id_BW = estpara(f,z1, finit)
+    f0_est, Qr_est, id_f0, id_BW = estpara(f,z1,fr_0)
 
     # fit circle using trimmed data points
-    id1 = max(id_f0-int(id_BW/3), 0)
-    id2 = min(id_f0+int(id_BW/3), len(f))
-    if len(range(id1, id2)) < 10:
+    id1 = max(id_f0-int(0.5*id_BW), 0)
+    id2 = min(id_f0+int(0.5*id_BW), len(f))
+    if len(range(id1, id2)) < 3:
         id1 = 0
         id2 = len(f)
 
     residue, zc, r = circle2(z1[id1:id2])
-    #print '|a| ', abs(zc)+r, 20*np.log10(abs(zc)+r), ' dB'
 
     # rotation and traslation to center
     z1b = z1*np.exp(-1j*np.angle(zc, deg=False))
-    #z1b = (z1-zc)*np.exp(-1j*np.angle((z1-zc)[id_f0], deg=False)+1j*np.pi)
     z2 = (zc-z1)*np.exp(-1j*np.angle(zc, deg=False))
 
     if False:
@@ -268,104 +293,38 @@ def roughfit(f, z, finit, tau0, numspan=2, resnum=None, plotting=True):
         plt.legend()
         plt.show()
 
-    # trim data and fit phase
-    fresult, ft = fitphase(f, z2, f0_est, Qr_est, numspan=numspan, resnum=resnum, plotting=plotting)
-    #idft1 = fid(f, ft[0])
-    #widft = len(ft)
-    #zt = z[idft1:idft1+widft] #-1
-    #ft = f[idft1:idft1+widft] #-1
+    # fit phase
+    #Q, f0, phi = fitphase(f, z2, f0_est, Qr_est)
 
-    # result
-    Q = fresult[0]
-    f0 = fresult[1]
-    phi = fresult[2]
-    #print 'alleged phi is '+str(phi)
+    z_off = np.mean(np.hstack((z1[:int(len(f)/10)],z1[-int(len(f)/10):])))
+    Q, f0, phi = fitphase2(f,z1,zc,f0_est,Qr_est,z_off)
 
-    zd = -zc/abs(zc)*np.exp(-1j*(phi))*r*2
-    zinf = zc - zd/2
-    #print np.angle(-zd/zinf, deg=False), np.angle(np.exp(-1j*(phi))+r/abs(zc), deg=False), phi-np.angle(zc, deg=False)
-
-    Qc = Q*(abs(zinf)/(2*r))  # Allows negative Qi, but gets best fits somehow
-    #Qc = Q*(abs(zc)+r)/(2*r)   # Taken from Gao E.13, but gives negative Qi and doesn't fit as well
-    #Qc = Q/(2*r)               # Taken from Gao 4.40, has positive Qi but fits terribly
-    Qi = 1/((1/Q)-(1/Qc))
-
-    zf0 = zinf + zd
-
-    # projection of zf0 into zinf
-    l = np.array(zf0*np.conj(zinf)).real/abs(zinf)**2
-
-    # Q/Qi0 = l
-    Qi0 = Q/l
+    Qc = abs(z_off)*Q/(2*r)
 
     if False:
-        x_lin_reg = (f-f[id_f0])/f[id_f0]
-        lin_reg_0 = max(id_f0-int(id_BW/20), 0)
-        lin_reg_1 = min(id_f0+int(id_BW/20), len(f))
-        lin_reg_params = np.polyfit(x_lin_reg[lin_reg_0:lin_reg_1],abs(z1[lin_reg_0:lin_reg_1]),1)
-        lin_reg_fit = lin_reg_params[1]+x_lin_reg[lin_reg_0:lin_reg_1]*lin_reg_params[0]
-        Lambda = lin_reg_params[0]*lin_reg_params[1]
-        Qm_000 = -2*(abs(zc)+r)*(abs(zc)+r)*Q*Q/Lambda
-        Qc_000 = Q/(1-Q*np.sqrt(abs(-2*(lin_reg_params[1]/(lin_reg_params[0]*Qm_000))-1/(Qm_000**2))))
-        all_fit = (abs(zc)+r)*np.sqrt(((1-(((Q/Qc_000)+2*Q*Q*x_lin_reg/Qm_000)/(1+4*Q*Q*x_lin_reg*x_lin_reg)))**2)+((((Q/Qm_000)-2*Q*Q*x_lin_reg/Qc_000)/(1+4*Q*Q*x_lin_reg*x_lin_reg))**2))
-        plt.plot(x_lin_reg,abs(z1))
-        plt.plot(x_lin_reg[lin_reg_0:lin_reg_1],abs(z1[lin_reg_0:lin_reg_1]))
-        plt.plot(x_lin_reg[id_f0],abs(z1[id_f0]),'o')
-        plt.plot(x_lin_reg[lin_reg_0:lin_reg_1],lin_reg_fit, label=Qm_000)
-        plt.plot(x_lin_reg,all_fit)
-        plt.legend()
+        z_rough = z_off*np.exp(-2j*np.pi*(f-f0)*(tau_1+1j*Imtau_1))*(1-((Q/Qc)*np.exp(1j*phi))/(1+2j*Q*((f-f0)/f0)))
+        plt.figure(1)
+        plt.plot(z.real,z.imag)
+        plt.plot(z_rough.real,z_rough.imag)
+        plt.plot(z_off.real,z_off.imag,'*')
+        plt.figure(2)
+        plt.plot(f,z.real)
+        plt.plot(f,z.imag)
+        plt.plot(f,z_rough.real)
+        plt.plot(f,z_rough.imag)
         plt.show()
-        print Qm_000, Qc_000
-        print abs(zc)-r, lin_reg_params[1]
-    Qm_000=10
 
-    return f0, Q, phi, zd, zinf, Qc, Qi, Qi0, Qm_000
-
-#def estsig(f, z):
-#    # seems to be for estimating variance (sigma squared)
-#    sig2 = np.mean(abs(np.diff(z[:int(len(z)/5)]))**2)/2
-#    sig2x = sig2/2
-#    return sig2x
-
-#def resfunc0(f, f0, Q, zdx, zdy, zinfx, zinfy, tau, f1=None):
-#    zd = zdx+1j*zdy
-#    zinf = zinfx+1j*zinfy
-#    #Q=Q*10000
-#
-#    ff = abs(f)
-#    yy = np.exp(-2j*np.pi*(ff-f1)*tau)*(zinf+(zd/(1+2j*Q*(ff-f0)/f0)))
-#
-#    yy = np.array(yy)
-#    ayy = yy.real
-#    ayy[f>0] = 0
-#    byy = yy.imag
-#    byy[f<0] = 0
-#    y = ayy+byy
-#    return y
-
-#def resfunc2(f, fr, Qr, Qc, areal, aimag, phi0, neg_tau, f1=None):
-#    x = abs(f)
-#    a = areal + 1j*aimag
-#    complexy = a*np.exp(2j*np.pi*(x-f1)*neg_tau)*(1-(((Qr/Qc)*np.exp(1j*phi0))/(1+(2j*Qr*(x-fr)/fr))))
-#
-#    complexy = np.array(complexy)
-#    realy = complexy.real
-#    realy[f>0] = 0
-#    imagy = complexy.imag
-#    imagy[f<0] = 0
-#    y = realy+imagy
-#    return y
+    return f0, Q, phi, z_off, Qc, tau_1, Imtau_1
 
 def resfunc3(f, fr, Qr, Qc_hat_mag, a, phi, tau):
     """A semi-obvious form of Gao's S21 function. e^(2j*pi*fr*tau) is incorporated into a."""
     S21 = a*np.exp(-2j*np.pi*(f-fr)*tau)*(1-(((Qr/Qc_hat_mag)*np.exp(1j*phi))/(1+(2j*Qr*(f-fr)/fr))))
     return S21
 
-def resfunc5(f_proj, fr, Qr,  Qc_hat_mag, zinfmag, zinfarg, phi, tau, Imtau):
+def resfunc8(f_proj, fr, Qr,  Qc_hat_mag, a_real, a_imag, phi, tau, Imtau):
     """An alternate resfunc3 with all real inputs. Re(S21) is projected onto negative frequency space."""
     f = abs(f_proj)
-    #a = zinfmag*np.exp(1j*zinfarg)*np.exp(-2j*np.pi*fr*(tau+1j*Imtau))
-    S21 = zinfmag*np.exp(1j*zinfarg)*np.exp(-2j*np.pi*(f-fr)*(tau+1j*Imtau))*(1-(((Qr/ Qc_hat_mag)*np.exp(1j*phi))/(1+(2j*Qr*(f-fr)/fr))))
+    S21 = (a_real+1j*a_imag)*np.exp(-2j*np.pi*(f-fr)*(tau+1j*Imtau))*(1-(((Qr/ Qc_hat_mag)*np.exp(1j*phi))/(1+(2j*Qr*(f-fr)/fr))))
     S21 = np.array(S21)
     real_S21 = S21.real
     real_S21[f_proj>0] = 0
@@ -373,159 +332,72 @@ def resfunc5(f_proj, fr, Qr,  Qc_hat_mag, zinfmag, zinfarg, phi, tau, Imtau):
     imag_S21[f_proj<0] = 0
     return real_S21 + imag_S21
 
-def resfunc7(f_proj, fr, Qr, Qc, zinfmag, zinfarg, Qm, tau, Imtau):
-    """An alternate resfunc3 with all real inputs. Re(S21) is projected onto negative frequency space."""
-    f = abs(f_proj)
-    #a = zinfmag*np.exp(1j*zinfarg)*np.exp(-2j*np.pi*fr*(tau+1j*Imtau))
-    S21 = zinfmag*np.exp(1j*zinfarg)*np.exp(-2j*np.pi*(f-fr)*(tau+1j*Imtau))*(1-((Qr*(1/Qc+1j/Qm))/(1+(2j*Qr*(f-fr)/fr))))
-    S21 = np.array(S21)
-    real_S21 = S21.real
-    real_S21[f_proj>0] = 0
-    imag_S21 = S21.imag
-    imag_S21[f_proj<0] = 0
-    return real_S21 + imag_S21
-
-def resfunc8(f, fr, Qr, Qc, a, Qm, tau):
-    """A semi-obvious form of Gao's S21 function. e^(2j*pi*fr*tau) is incorporated into a."""
-    S21 = a*np.exp(-2j*np.pi*(f-fr)*tau)*(1-((Qr*(1/Qc+1j/Qm))/(1+(2j*Qr*(f-fr)/fr))))
-    return S21
-
-def finefit(f, z, fr_0, tau_0, fwindow, numspan=2, resnum=None, plotting=True):
+def finefit(f, z, fr_0):
     """
     finefit fits f and z to the resonator model described in Jiansong's thesis
+
     Input parameters:
-        f:        frequencys
-        z:        complex impedence
-        fr_0:     initially predicted fr
-        tau_0:    initially guessed cable delay
-        numspan:  how many bandwidths (fr_1/Qr_1) to cut around the data during fit (numspan=1 gives fr_1/Qr_1 on each side for a total width of 2 bandwidth)
+                  f: frequencys
+                  z: complex impedence
+               fr_0: initially predicted fr [GHz]
 
     Returns:
-        fr_1: frequency center of the resonator
-        Q: total Q factor of the resonator
-        Qi0: unsure?
-            Qi is the internal Q factor of the resonator. Accounts for all the other loss channels
-            (Ql, QTL) than through coupling to the feedline (Qc)[paraphrased from Jiansong thesis]
-        Qc: coupling Q factor of the resonator. Caused be coupling to the feedline
-        zc:
+        fr_fine, Qr_fine, Qc_hat_mag_fine, a_fine, phi_fine, tau_fine, Qc_fine
     """
 
     # find starting parameters using a rough fit
-    fr_1, Qr_1, phi_1, zd, zinf, Qc_1, Qi_1, Qi0, Qm_0 = roughfit(f, z, fr_0, tau_0, numspan=numspan, resnum=resnum, plotting=False)
+    fr_1, Qr_1, phi_1, a_1, Qc_hat_mag_1, tau_1, Imtau_1 = roughfit(f, z, fr_0)
 
     # trim data?
-    if False:
-        fnew, znew = trimdata(f, z, fr_1, Qr_1, numspan=numspan)
-        if len(fnew)>10:
-            f = fnew
-            z = znew
+    #if False:
+    #    fnew, znew = trimdata(f, z, fr_1, Qr_1)
+    #    if len(fnew)>10:
+    #        f = fnew
+    #        z = znew
 
     # combine x and y data so the fit can go over both simultaneously
     xdata = np.concatenate([-f, f])
     ydata = np.concatenate([z.real, z.imag])
+    final_fit_plotting = False
 
-    a_1 = zinf*np.exp(-2j*np.pi*fr_1*(-tau_0))
-    phi_2 = np.angle(-zd/zinf, deg=False)
-    Qm_1 = 1./(np.exp(1.j*phi_2)/Qc_1).imag
-    Qc_2 = 1./(np.exp(1.j*phi_2)/Qc_1).real
-    Qc_2 = Qc_1
-    #print Qm_1, Qc_2
-    #phi_2 = (-1/zinf).imag
-
-    def resfunc6(f_proj, Imtau):
-        """An alternate resfunc3 with all real inputs. Re(S21) is projected onto negative frequency space."""
-        f = abs(f_proj)
-        #a = abs(zinf)*np.exp(1j*np.angle(zinf))*np.exp(-2j*np.pi*fr_1*(tau_0+1j*Imtau))
-        S21 = abs(zinf)*np.exp(1j*np.angle(zinf))*np.exp(-2j*np.pi*(f-fr_1)*(tau_0+1j*Imtau))*(1-(((Qr_1/Qc_1)*np.exp(1j*phi_2))/(1+(2j*Qr_1*(f-fr_1)/fr_1))))
-        #S21 = np.array(S21)
-        real_S21 = S21.real
-        real_S21[f_proj>0] = 0
-        imag_S21 = S21.imag
-        imag_S21[f_proj<0] = 0
-        return real_S21 + imag_S21
-    fparams, fcov = opt.curve_fit(resfunc6, xdata, ydata, p0=0, bounds=(-200, 200))
-    Imtau_0 = fparams[0]
-
-    def resfunc9(f_proj,Qc,Qm):
-        f = abs(f_proj)
-        #a = abs(zinf)*np.exp(1j*np.angle(zinf))*np.exp(-2j*np.pi*fr_1*(tau_0+1j*Imtau))
-        S21 = abs(zinf)*np.exp(1j*np.angle(zinf))*np.exp(-2j*np.pi*(f-fr_1)*(tau_0+1j*Imtau_0))*(1-(Qr_1*(1/Qc+1j/Qm))/(1+(2j*Qr_1*(f-fr_1)/fr_1)))
-        #S21 = np.array(S21)
-        real_S21 = S21.real
-        real_S21[f_proj>0] = 0
-        imag_S21 = S21.imag
-        imag_S21[f_proj<0] = 0
-        return real_S21 + imag_S21
-    #fparams, fcov = opt.curve_fit(resfunc9, xdata, ydata, p0=[Qc_1,Qm_1])
-    #Qc_2,Qm_2 = fparams
-    #plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(ydata[:len(z)]+1j*ydata[len(z):])),'.')
-    #plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc9(xdata[:len(z)],Qc_1,Qm_1)+1j*resfunc9(xdata[len(z):],Qc_1,Qm_1))), label='1')
-    #plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc9(xdata[:len(z)],Qc_2,Qm_2)+1j*resfunc9(xdata[len(z):],Qc_2,Qm_2))), label='2')
-    #plt.plot(xdata,ydata,label='data')
-    #plt.plot(xdata,resfunc9(xdata,Qc_1,Qm_1),label='1')
-    #plt.plot(xdata,resfunc9(xdata,Qc_2,Qm_2),label='2')
-    #plt.legend()
-    #plt.show()
-
-    #plotting=True
-    if plotting:
+    if final_fit_plotting:
         plt.figure(1)
-        plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(ydata[:len(z)]+1j*ydata[len(z):])),'.')
-        #plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc5(xdata[:len(z)],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, 0)+1j*resfunc5(xdata[len(z):],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, 0))), label='roughfit, Imtau=0')
-        plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc5(xdata[:len(z)],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, Imtau_0)+1j*resfunc5(xdata[len(z):],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, Imtau_0))), label='roughfit with phi')
-        plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc7(xdata[:len(z)],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), Qm_1, tau_0, Imtau_0)+1j*resfunc7(xdata[len(z):],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), Qm_1, tau_0, Imtau_0))), label='roughfit with Qm_1')
-        plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc7(xdata[:len(z)],fr_1, Qr_1, Qc_2, abs(zinf), np.angle(zinf), Qm_2, tau_0, Imtau_0)+1j*resfunc7(xdata[len(z):],fr_1, Qr_1, Qc_2, abs(zinf), np.angle(zinf), Qm_2, tau_0, Imtau_0))), label='roughfit with Qm_2')
-        #plt.plot(abs(xdata[:len(z)]),20*np.log10(np.abs(resfunc7(xdata[:len(z)],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), Qm_0, tau_0, Imtau_0)+1j*resfunc7(xdata[len(z):],fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), Qm_0, tau_0, Imtau_0))), label='roughfit')
-        plt.legend()
-        #plt.show()
-
-    #print 'fr_1 = ' + str(fr_1)
-    #print 'Qr_1 = ' + str(Qr_1)
-    #print 'Qc_1 = ' + str(Qc_1)
-    #print 'tau_0 = ' + str(tau_0+1j*Imtau_0)
-    #print 'phi_2 = ' + str(phi_2) # This number would preferable be between -0.5*pi and +0.5*pi
-
-    #fparams, fcov = opt.curve_fit(resfunc7, xdata, ydata, p0=[fr_1, Qr_1, Qc_2, abs(zinf), np.angle(zinf), Qm_2, tau_0, Imtau_0], bounds=([(fr_1-fwindow), 0, 0, 0, -2*np.pi,-np.inf, -200, -200], [(fr_1+fwindow), np.inf, np.inf, np.inf, 2*np.pi, np.inf, 200, 200]), sigma=abs(abs(xdata)-np.mean(f)+0.000000000001)**0.5)
-    fparams, fcov = opt.curve_fit(resfunc5, xdata, ydata, p0=[fr_1, Qr_1, Qc_1, abs(zinf), np.angle(zinf), phi_2, tau_0, Imtau_0], bounds=([(fr_1-fwindow), 0, 0, 0, -2*np.pi,-2*np.pi, -200, -200], [(fr_1+fwindow), np.inf, np.inf, np.inf, 2*np.pi, 2*np.pi, 200, 200]))#, sigma=abs(abs(xdata)-np.mean(f)+0.000000000001)**0.5)
-    #print fparams[5], fparams[2]
-    #print fparams[1], fparams[2], fparams[1]*fparams[2]/(fparams[2]-fparams[1]), fparams[5]
-    print ''
-
-    if plotting:
-        plt.plot(abs(xdata[:len(z)]), 20*np.log10(np.abs(resfunc7(xdata[:len(z)],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7])+1j*resfunc7(xdata[len(z):],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7]))), label='finefit')
-        plt.plot(fparams[0], 20*np.log10(np.abs(resfunc7(-1.*fparams[0],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7])+1j*resfunc7(fparams[0],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7]))), label='finefit fr', marker='o')
-        plt.legend()
+        plt.plot(abs(xdata[:len(z)]),20*np.log10(abs(ydata[:len(z)]+1j*ydata[len(z):])),'.')
+        plt.plot(abs(xdata[:len(z)]),20*np.log10(abs(resfunc8(xdata[:len(z)],fr_1, Qr_1, Qc_hat_mag_1, a_1.real, a_1.imag, phi_1, tau_1, Imtau_1)+1j*resfunc8(xdata[len(z):],fr_1, Qr_1, Qc_hat_mag_1, a_1.real, a_1.imag, phi_1, tau_1, Imtau_1))),label='roughfit')
         plt.figure(2)
         plt.plot(abs(xdata),ydata,'.')
-        plt.plot(abs(xdata),resfunc7(xdata,fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7]))
+        plt.plot(abs(xdata),resfunc8(xdata,fr_1, Qr_1, Qc_hat_mag_1, a_1.real, a_1.imag, phi_1, tau_1, Imtau_1),label='roughfit')
+        plt.figure(3)
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.axvline(x=0, color='gray')
+        plt.axhline(y=0, color='gray')
+        plt.plot(z.real,z.imag,'.')
+        plt.plot(resfunc3(f,fr_1,Qr_1,Qc_hat_mag_1,a_1,phi_1,tau_1).real,resfunc3(f,fr_1,Qr_1,Qc_hat_mag_1,a_1,phi_1,tau_1).imag,label='roughfit')
+
+    fparams, fcov = opt.curve_fit(resfunc8, xdata, ydata, p0=[fr_1, Qr_1, Qc_hat_mag_1, a_1.real, a_1.imag, phi_1, tau_1, Imtau_1], bounds=([min(f), 0, 0, -np.inf, -np.inf,-1*np.pi, -np.inf, -np.inf], [max(f), np.inf, np.inf, np.inf, np.inf, np.pi, np.inf, np.inf]))
+
+    if final_fit_plotting:
+        plt.figure(1)
+        plt.plot(abs(xdata[:len(z)]), 20*np.log10(abs(resfunc8(xdata[:len(z)],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7])+1j*resfunc8(xdata[len(z):],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7]))),label='finefit')
+        plt.plot(fparams[0], 20*np.log10(abs(resfunc8(-1.*fparams[0],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7])+1j*resfunc8(fparams[0],fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7]))),'o',label='finefit fr')
+        plt.legend()
+        plt.figure(2)
+        plt.plot(abs(xdata),resfunc8(xdata,fparams[0],fparams[1],fparams[2],fparams[3],fparams[4],fparams[5],fparams[6],fparams[7]),label='finefit')
+        plt.legend()
+        plt.figure(3)
+        plt.plot(resfunc3(f,fparams[0],fparams[1],fparams[2],fparams[3]+1j*fparams[4],fparams[5],fparams[6]+1j*fparams[7]).real,resfunc3(f,fparams[0],fparams[1],fparams[2],fparams[3]+1j*fparams[4],fparams[5],fparams[6]+1j*fparams[7]).imag,label='finefit')
+        plt.plot(resfunc3(fparams[0],fparams[0],fparams[1],fparams[2],fparams[3]+1j*fparams[4],fparams[5],fparams[6]+1j*fparams[7]).real,resfunc3(fparams[0],fparams[0],fparams[1],fparams[2],fparams[3]+1j*fparams[4],fparams[5],fparams[6]+1j*fparams[7]).imag,'o',label='finefit fr')
+        plt.legend()
         plt.show()
 
     fr_fine = fparams[0]
     Qr_fine = fparams[1]
     Qc_hat_mag_fine = fparams[2]
-    a_fine = fparams[3]*np.exp(1j*fparams[4])#*np.exp(2j*np.pi*fparams[0]*(fparams[6]+1j*fparams[7]))
+    a_fine = fparams[3]+1j*fparams[4]
     phi_fine = fparams[5]
     tau_fine = fparams[6] + 1j*fparams[7]
 
-    # find Qc, unsure where this equation originates
-    #Qc = (abs(zinf)/abs(zd))*Q
-    # find Qi (all Q that isn't Qc)
-    Qi_fine = 1/((1/Qr_fine)-(1/ Qc_hat_mag_fine))
-    #print Qi_fine
-
-    # the next section finds Qi0 and other parameters. I'm not sure where any of these equations come from or why we want these parameters
-    zf0 = zinf + zd
-    # projection of zf0 into zinf
-    l = (zf0*np.conj(zinf)).real/abs(zinf)**2
-    # Q/Qi0 = l
-    Qi0 = Qr_1/l
-    zc = zinf + zd/2
-    r = abs(zd/2)
-    phi = np.angle(-zd/zc, deg=False)
-
     Qc_fine =  Qc_hat_mag_fine/np.cos(phi_fine)
-
-    #print  Qc_fine, 1/np.real(np.exp(1j*Qm_fine)/Qc_fine)
 
     return fr_fine, Qr_fine, Qc_hat_mag_fine, a_fine, phi_fine, tau_fine, Qc_fine
 
@@ -546,7 +418,7 @@ def sweep_fit_from_file(fname, nsig=3, fwindow=5e-4, chan="S21", h5_rewrite=Fals
              stop_f: upper bound of resonance identification region [GHz]
 
     Returns:
-        fr_list, Qr_list, Qc_list, Qi_list (fitted values for each resonator)
+        Nothing
     """
 
     with h5py.File(fname, "r") as fyle:
@@ -588,6 +460,12 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
     Returns:
         fr_list, Qr_list, Qc_list, Qi_list (fitted values for each resonator)
     """
+
+    #organize the frequencies
+    z_1 = [zs for _,zs in sorted(zip(f,z))]
+    f_1 = [fs for fs,_ in sorted(zip(f,z))]
+    z = np.array(z_1)
+    f = np.array(f_1)
 
     nfreq = 1/(2*(abs(f[-1]-f[0])/(len(f)-1)))    # The nyquist frequency [s]
     evfreq = 1/(2*fwindow)    # The frequency corresponding to the expected window size [s]
@@ -638,32 +516,9 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
     peaklist = sorted(peaklist)
     print 'peaklist', peaklist
 
-    # Plot the transmission and peaks
-    plt.figure()
-
-    fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
-    axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
-    axarr[0].set_title('Transmission with Resonance Identification')
-    axarr[0].set_ylabel("|$S_{21}$| [dB]")
-    axarr[1].plot(f, mfz/bstd)
-    axarr[1].set_ylabel("|filtered z| [#std]")
-    axarr[1].set_xlabel("Frequency [GHz]")
-    axarr[1].axhline(y=nsig, color="red", label="nsig = "+str(nsig))
-    axarr[1].axhline(y=gamma/bstd, color="green")
-    axarr[1].axvline(x=start_f, color="gray")
-    axarr[1].axvline(x=stop_f, color="gray")
-    axarr[1].plot(f[peaklist], mfz[peaklist]/bstd, 'gs', label=str(len(peaklist)-len(additions))+" resonances identified")
-    axarr[1].plot(f[addlist], mfz[addlist]/bstd, 'ys', label=str(len(addlist))+" resonances manually added")
-    plt.legend()
-
-    plt.show()
-
-    # Save to pdf if pdf_rewrite == True
-    if pdf_rewrite == True:
-        plt.figure(figsize=(10, 10))
-
+    def peak_figure():
         fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
-        axarr[0].plot(f, 20*np.log10(np.abs(np.array(z)))) # plot the unaltered transmission
+        axarr[0].plot(f, 20*np.log10(abs(np.array(z)))) # plot the unaltered transmission
         axarr[0].set_title('Transmission with Resonance Identification')
         axarr[0].set_ylabel("|$S_{21}$| [dB]")
         axarr[1].plot(f, mfz/bstd)
@@ -677,6 +532,15 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
         axarr[1].plot(f[addlist], mfz[addlist]/bstd, 'ys', label=str(len(addlist))+" resonances manually added")
         plt.legend()
 
+    # Plot the transmission and peaks
+    plt.figure()
+    peak_figure()
+    plt.show()
+
+    # Save to pdf if pdf_rewrite == True
+    if pdf_rewrite == True:
+        plt.figure(figsize=(10, 10))
+        peak_figure()
         Res_pdf = PdfPages(filename+'.pdf')
         Res_pdf.savefig()
         plt.close()
@@ -694,42 +558,37 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
     # define the windows around each peak. and then use finefit to find the parameters
     for i in range(len(peaklist)):
         print 'Resonance #{}'.format(str(i))
-        curr_pts = (f >= (f[peaklist[i]]-fwindow)) & (f <= (f[peaklist[i]]+fwindow))
+        curr_pts = (f >= (f[peaklist[i]]-2*fwindow)) & (f <= (f[peaklist[i]]+2*fwindow))
         f_curr = f[curr_pts]
         z_curr = z[curr_pts]
-        #print np.vstack((f_curr,z_curr)).T
-        z_curr_1 = [zs for _,zs in sorted(zip(f_curr,z_curr))]
-        f_curr_1 = [fs for fs,_ in sorted(zip(f_curr,z_curr))]
-        f_curr = np.array(f_curr_1)
-        z_curr = np.array(z_curr_1)
 
         try:
-            fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i], Qc_list[i] = finefit(f_curr, z_curr, f[peaklist[i]], 30, fwindow, numspan=2, resnum=i, plotting=False)
+            fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i], Qc_list[i] = finefit(f_curr, z_curr, f[peaklist[i]])
             Qi_list[i] = (Qr_list[i]*Qc_list[i])/(Qc_list[i]-Qr_list[i])
-        except:
+        except Exception, issue:
             print '      failure'
-            fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i], Qc_list[i] = [0,0,0,0,0,0,0]
+            print issue
+            fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i], Qc_list[i] = [f[peaklist[i]],1e4,1e5,1,0,0,1e5]
             Qi_list[i] = 0
 
-        fit_at_input = resfunc3(f_curr, fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i])
-        fitres_Chi2 = sum((z_curr.real-fit_at_input.real)**2+(z_curr.imag-fit_at_input.imag)**2)
+        fit_discrete = resfunc3(f_curr, fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i])
+        SSE = sum((z_curr.real-fit_discrete.real)**2+(z_curr.imag-fit_discrete.imag)**2)
 
         if pdf_rewrite == True:
-            f_continuous = np.linspace(f_curr[0],f_curr[-1],14*len(f_curr))
+            f_continuous = np.linspace(f_curr[0],f_curr[-1],5e3)
             fit = resfunc3(f_continuous, fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i])
             zrfit = resfunc3(fr_list[i], fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i])
             fit_down = resfunc3(f_continuous, fr_list[i], 0.95*Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i])
             fit_up = resfunc3(f_continuous, fr_list[i], 1.05*Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i])
-            fitwords = "$f_{r}$ = " + str(fr_list[i]) + "\n" + "$Q_{r}$ = " + str(Qr_list[i]) + "\n" + "$Q_{c}$ = " + str(Qc_list[i]) + "\n" + "$Q_{i}$ = " + str((Qr_list[i]*Qc_list[i])/(Qc_list[i]-Qr_list[i])) + "\n" + "$\phi_{0}$ = " + str(phi_list[i]) + "\n" + "$a$ = " + str(a_list[i]) + "\n" + r"$\tau$ = " + str(tau_list[i]) + "\n"
 
             plt.figure(figsize=(10, 10))
 
-            plt.subplot(2,2,1)
-            plt.plot(f_curr, 20*np.log10(np.abs(z_curr)),'.', label='Data')
-            #plt.plot(f_continuous, 20*np.log10(np.abs(fit_down)), label='Fit 0.95Q')
-            plt.plot(f_continuous, 20*np.log10(np.abs(fit)), label='Fit 1.00Q', color='red')
-            #plt.plot(f_continuous, 20*np.log10(np.abs(fit_up)), label='Fit 1.05Q')
-            plt.plot(fr_list[i], 20*np.log10(np.abs(zrfit)), '*', markersize=10, color='red', label='$f_{r}$')
+            plt.subplot(2,2,1) # top left plot
+            plt.plot(f_curr, 20*np.log10(abs(z_curr)),'.', label='Data')
+            plt.plot(f_continuous, 20*np.log10(abs(fit_down)), label='Fit 0.95Q')
+            plt.plot(f_continuous, 20*np.log10(abs(fit)), label='Fit 1.00Q', color='red')
+            plt.plot(f_continuous, 20*np.log10(abs(fit_up)), label='Fit 1.05Q')
+            plt.plot(fr_list[i], 20*np.log10(abs(zrfit)), '*', markersize=10, color='red', label='$f_{r}$')
             plt.title("resonance " + str(i) + " at " + str(int(10000*fr_list[i])/10000) + " GHz")
             plt.xlabel("Frequency [GHz]")
             plt.xticks([min(f_curr),max(f_curr)])
@@ -741,17 +600,17 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
             plt.axvline(x=0, color='gray')
             plt.axhline(y=0, color='gray')
             plt.plot(z_curr.real, z_curr.imag,'.', label='Data')
-            #plt.plot(fit_down.real, fit_down.imag,  label='Fit 0.95Q')
+            plt.plot(fit_down.real, fit_down.imag,  label='Fit 0.95Q')
             plt.plot(fit.real, fit.imag,  label='Fit 1.00Q', color='red')
-            #plt.plot(fit_up.real, fit_up.imag, label='Fit 1.05Q')
+            plt.plot(fit_up.real, fit_up.imag, label='Fit 1.05Q')
             plt.plot(zrfit.real, zrfit.imag, '*', markersize=10, color='red',  label='Fr')
             plt.xlabel("$S_{21}$ real")
             plt.xticks([min(z_curr.real),max(z_curr.real)])
             plt.ylabel("$S_{21}$ imaginary",labelpad=-40)
             plt.yticks([min(z_curr.imag),max(z_curr.imag)])
 
+            fitwords = "$f_{r}$ = " + str(fr_list[i]) + "\n" + "$Q_{r}$ = " + str(Qr_list[i]) + "\n" + "$Q_{c}$ = " + str(Qc_list[i]) + "\n" + "$Q_{i}$ = " + str(Qi_list[i]) + "\n" + "$\phi_{0}$ = " + str(phi_list[i]) + "\n" + "$a$ = " + str(a_list[i]) + "\n" + r"$\tau$ = " + str(tau_list[i]) + "\n"
             plt.figtext(0.55, 0.085, fitwords)
-            #plt.figtext(0.75, 0.14, fitwords2)
             plt.figtext(0.5, 0.26, r"$S_{21}(f)=ae^{-2\pi j(f-fr)\tau}\left [ 1-\frac{\frac{Q_{r}}{|\widehat{Q}_{c}|}e^{j\phi_{0}}}{1+2jQ_{r}(\frac{f-f_{r}}{f_{r}})} \right ]$", fontsize=20)
 
             plt.subplot(2,2,3)
@@ -777,6 +636,5 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
     return fr_list, Qr_list, Qc_list, Qi_list
 
 if __name__ == '__main__':
-    sweep_fit_from_file("191015OW190920p1.h5", nsig=2, fwindow=5e-4, h5_rewrite=False, pdf_rewrite=False, start_f=3, stop_f=3.6)
-    #sweep_fit_from_file("191018OW190920p1.h5", nsig=2.1, fwindow=5e-4, h5_rewrite=False, pdf_rewrite=False, start_f=3, stop_f=3.6)
+    sweep_fit_from_file("190802YY180726p2.h5", nsig=1, fwindow=5e-4, h5_rewrite=False, pdf_rewrite=True, start_f=3.12, stop_f=3.18)
     plt.show()
