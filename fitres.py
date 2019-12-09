@@ -636,5 +636,5 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
     return fr_list, Qr_list, Qc_list, Qi_list
 
 if __name__ == '__main__':
-    sweep_fit_from_file("190802YY180726p2.h5", nsig=1, fwindow=5e-4, h5_rewrite=False, pdf_rewrite=True, start_f=3.12, stop_f=3.18)
+    sweep_fit_from_file("191206YY180726p2.h5", nsig=1, fwindow=5e-4, h5_rewrite=True, pdf_rewrite=True, start_f=3.13, stop_f=3.18)
     plt.show()

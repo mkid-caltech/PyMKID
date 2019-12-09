@@ -17,7 +17,10 @@ def setK(nominal_temp):
         aly2.write("HTRRNG {}".format(min([v for k,v in HRNG.items() if nominal_temp < k])))
         aly2.write('SETP {:.3f};'.format(nominal_temp))
         aly2.write('CMODE %d' % mode )
-    #time.sleep(120)
-    #temp = aly2.query('RDGK? 1')
-    #print 'Acquiring: {}'.format(temp)
-    #aly2.write("HTRRNG 0")
+
+def readK():
+    rm =  visa.ResourceManager()
+    aly2 = rm.open_resource('GPIB0::12::INSTR')
+    temp = aly2.query('RDGK? 1')
+    print 'Measured: {}'.format(temp)
+    return temp
