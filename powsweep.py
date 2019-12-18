@@ -240,3 +240,33 @@ def plot_temp(fname, top=4, together=False):
         if together:
             plt.legend()
             plt.show()
+
+def plot_temp_pow(fname, top=4, together=False):
+    with h5py.File(fname, "r") as fyle:
+        for timestamp in fyle["tempsweep"].keys():
+            print timestamp
+            temperatures = np.array(fyle["tempsweep/"+timestamp].keys())
+            for temperature in temperatures:
+                plt.figure()
+                print 'Temperature: ' + temperature
+                powernams = np.array(fyle["tempsweep/"+timestamp+"/"+temperature].keys())
+                powervals = powernams.astype(np.float)
+                #print sorteexd(powervals)
+                #print powervals.argsort()
+                powernams = powernams[powervals.argsort()]
+                for power in powernams:
+                    df = pd.read_hdf(fname, key="tempsweep/"+timestamp+"/"+temperature+"/"+power)
+                    resID = df['resID']
+                    f = df['f']
+                    z = df['z']
+                    plt.plot(f, 20*np.log10(np.abs(np.array(z))), label=power)
+                    #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+                plt.legend()
+                plt.show()
+                #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
+            if not together:
+                plt.legend()
+                plt.show()
+        if together:
+            plt.legend()
+            plt.show()
