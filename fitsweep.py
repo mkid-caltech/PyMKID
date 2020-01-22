@@ -7,43 +7,59 @@ from collections import defaultdict
 import math
 
 
-def fit_all_sweeps(fname="181019YY180726p2.h5", sweeptype="powsweep"):
+def fit_all_sweeps(fname="181019YY180726p2.h5", sweeptype="powsweep", h5_rewrite = False):
     with h5.File(fname) as fyle:
         result = pd.DataFrame()
         for sdate in fyle[sweeptype].keys():
             for sweep in fyle[sweeptype][sdate].keys():
-                result =  result.append(fit_single_sweep(fname, sweeptype, sdate, sweep))
+                result =  result.append(fit_single_sweep(fname, sweeptype, sdate, sweep, h5_rewrite))
     return result
 
 
-def fit_single_sweep(fname, sweeptype, sdate, sweep):
+def fit_single_sweep(fname, sweeptype, sdate, sweep, h5_rewrite = False):
     with h5.File(fname) as fyle:
         fr_list_0 = fyle["S21/fr_list"][:]
 
         df = pd.read_hdf(fname, "{}/{}/{}".format(sweeptype, sdate, sweep))
 
         num_res = len(fr_list_0)
-        fr_list, Qr_list, Qc_list, a_list, phi_list, tau_list = \
-        [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res
+        fr_list, Qr_list, Qc_mag_list, a_list, phi_list, tau_list, Qc_list = \
+        [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res, [None]*num_res
         for resID, fr_nominal in enumerate(fr_list_0):
-            print resID
+            print sweep, fr_nominal
             df_temp = df[df.resID == resID]
             fwindow = 5e-4 # (max(df_temp.f) - min(df_temp.f)) / 2.0
             f_curr = df_temp.f.values
             z_curr = df_temp.z.values
             # print f_curr
             # print z_curr
+            try:
+                fr_list[resID], \
+                Qr_list[resID], \
+                Qc_mag_list[resID], \
+                a_list[resID], \
+                phi_list[resID], \
+                tau_list[resID], \
+                Qc_list[resID] = \
+                fitres.finefit(f_curr, z_curr, fr_nominal)
+            except:
+                print "couldn't find a fit"
+                fr_list[resID], Qr_list[resID], Qc_mag_list[resID], a_list[resID], phi_list[resID], tau_list[resID], Qc_list[resID] = \
+                0, 0, 0, 0, 0, 0, 0
+        if h5_rewrite == True:
+            with h5.File(fname, "r+") as fyle:
+                if "{}/{}/{}/fr_list".format(sweeptype,sdate,sweep) in fyle:
+                    fyle.__delitem__("{}/{}/{}/fr_list".format(sweeptype,sdate,sweep))
+                if "{}/{}/{}/Qr_list".format(sweeptype,sdate,sweep) in fyle:
+                    fyle.__delitem__("{}/{}/{}/Qr_list".format(sweeptype,sdate,sweep))
+                if "{}/{}/{}/Qc_list".format(sweeptype,sdate,sweep) in fyle:
+                    fyle.__delitem__("{}/{}/{}/Qc_list".format(sweeptype,sdate,sweep))
 
-            fr_list[resID], \
-            Qr_list[resID], \
-            Qc_list[resID], \
-            a_list[resID], \
-            phi_list[resID], \
-            tau_list[resID], _ = \
-            fitres.finefit(f_curr, z_curr, fr_nominal)
 
-        fyle[sweeptype][sdate]
-    result = pd.DataFrame({"fr_list":fr_list, "Qr_list":Qr_list, "Qc_list":Qc_list, "a_list":a_list, "phi_list":phi_list, "tau_list":tau_list})
+                fyle["{}/{}/{}/fr_list".format(sweeptype,sdate,sweep)] = fr_list
+                fyle["{}/{}/{}/Qr_list".format(sweeptype,sdate,sweep)] = Qr_list
+                fyle["{}/{}/{}/Qc_list".format(sweeptype,sdate,sweep)] = Qc_list
+    result = pd.DataFrame({"fr_list":fr_list, "Qr_list":Qr_list, "Qc_mag_list":Qc_mag_list, "a_list":a_list, "phi_list":phi_list, "tau_list":tau_list, "Qc_list": Qc_list})
     result["sweep"] = float(sweep)
     return result
 

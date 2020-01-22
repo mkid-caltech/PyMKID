@@ -75,10 +75,13 @@ def sweep_pow(fname, pow_list=np.arange(-35, -10, 5), points=1601, chan="S21",  
     if plotit == True:
         plt.show()
 
-def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, chan="S21",  plotit=False, windows=1):
+def sweep_temp(fname, power, temp_list=1E-3*np.arange(60, 360,10), points=1601, chan="S21",  plotit=False, windows=1):
     if max(temp_list) >= 2:
         print "Max temperature in temp_list is greater than 2K. Cancelling."
         raise SystemExit
+    if type(power) != float and type(power) != int and power != 'choose powers':
+            print "input power must either be a single number or a list with as many elements as there are resonators"
+            raise SystemExit
     temp_timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d-%H-%M-%S')
     rm =  visa.ResourceManager()
     VNA = rm.open_resource('GPIB0::16::INSTR')
@@ -92,6 +95,12 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
     with h5py.File(fname, "r+") as fyle:
         fr_list = np.array(fyle["{}/fr_list".format(chan)])
         print fr_list
+        if power == 'choose powers':
+            pow_list = np.array(fyle["powsweep/powers"])[0]
+            print pow_list
+
+
+
 
     fspanray = 2.0e-3*np.ones(len(fr_list)) # GHz, 2.0 MHz
     fspanray = fspanray/windows # Size of each window in GHz
@@ -100,7 +109,8 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
         plt.figure(1)
     mode = 1 #PID control
     HRNG = {80.e-3:2, 150.e-3:3, 1.e5:4}
-    VNA.write('POWE {:.2f} DB;'.format(power))
+    if type(power) == float or type(power) == int:
+        VNA.write('POWE {:.2f} DB;'.format(power))
     for nominal_temp in temp_list:
         LakeShore.write("HTRRNG {}".format(min([v for k,v in HRNG.items() if nominal_temp < k])))
         LakeShore.write('SETP {:.3f};'.format(nominal_temp))
@@ -108,8 +118,13 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
         time.sleep(120)
         df = pd.DataFrame()
         for idres, (fcenter, fspan) in enumerate(zip(fr_list, fspanray)):
+            if power == "choose powers":
+                VNA.write('POWE {:.2f} DB;'.format(pow_list[idres]))
+                power_used = float(pow_list[idres])
+            else:
+                power_used = power
             temp = LakeShore.query('RDGK? 1')
-            print 'Acquiring: {:.5f} {} {:+.2f}'.format(fcenter,temp,power)
+            print 'Acquiring: {:.5f} {} {:+.2f}'.format(fcenter,temp,power_used)
             f_snap = np.array([])
             z_snap = np.array([])
             for window in range(windows):
@@ -124,7 +139,7 @@ def sweep_temp(fname, power, temp_list=1E-3*np.arange(70, 150, 5), points=1601, 
             df_temp["T"] = temp
             df_temp["f0"] = fcenter
             df_temp["resID"] = idres
-            df_temp["power"] = power
+            df_temp["power"] = power_used
             df = df.append(df_temp)
             # if rewrite == True:
             #     with h5py.File(fname, "r+") as fyle:
@@ -219,9 +234,9 @@ def plot_pow(fname):
 
 def plot_temp(fname, top=4, together=False):
     with h5py.File(fname, "r") as fyle:
+        plt.figure()
         for timestamp in fyle["tempsweep"].keys():
             print timestamp
-            plt.figure(1)
             temperatures = np.array(fyle["tempsweep/"+timestamp].keys())
             temperatures = temperatures[temperatures!='MB']
             temperatures = temperatures[temperatures!='RES']
@@ -235,10 +250,11 @@ def plot_temp(fname, top=4, together=False):
                     plt.plot(f, 20*np.log10(np.abs(np.array(z))), label=temperature)
                     #plt.plot(f[resID==0], 20*np.log10(np.abs(np.array(z[resID==0]))))
             if not together:
-                plt.legend()
+                plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
                 plt.show()
+                plt.figure()
         if together:
-            plt.legend()
+            plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
             plt.show()
 
 def plot_temp_pow(fname, top=4, together=False):
