@@ -199,6 +199,8 @@ def sweep_temp_pow(fname, temp_list=1E-3*np.arange(70, 150, 5), pow_list=np.aran
 def plot_pow(fname):
     with h5py.File(fname, "r") as fyle:
         for timestamp in fyle["powsweep"].keys():
+            if timestamp == 'powers':
+                continue
             print timestamp
             plt.figure()
             powernams = np.array(fyle["powsweep/"+timestamp].keys())
