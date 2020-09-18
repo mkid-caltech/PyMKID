@@ -430,10 +430,15 @@ def save_clean_timestreams(h5_file,data_raw,cd1,cd2,cd1_clean,cd2_clean,coeff1,c
     data_dirty = cd1*np.exp(1j*((cd2/np.mean(abs(data_raw),axis=0))+np.angle(np.mean(data_raw,axis=0))))
     data_clean = cd1_clean*np.exp(1j*((cd2_clean/np.mean(abs(data_raw),axis=0))+np.angle(np.mean(data_raw,axis=0))))
     
+#     data_clean = np.transpose(np.transpose(data_clean)[0]) #if you only want to store res-tone of 2 tone data
+    
     with h5py.File(h5_file, 'r+') as fyle:
         if 'cleaned_data' in fyle.keys():
             print('cleaned_data already exists! If you set override=False, nothing will happen.')
             if override==True:
-                print('saving clean_data to {}!'.format(h5_file))
+                print('saving clean_data to {} because override=True!'.format(h5_file))
                 del fyle['cleaned_data']
                 fyle['cleaned_data'] = data_clean
+        else:
+            print('saving clean_data to {}!'.format(h5_file))
+            fyle['cleaned_data'] = data_clean
