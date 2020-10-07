@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import h5py
 import pandas as pd
 import fitres
-import MB_equations as Matt
+import MB_equations as MBe
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.colors import Normalize
 
@@ -217,7 +217,7 @@ def fit_temp_MB(fname, sweepnum, pickedres=None):
         fr_fitter = fr_of_T[fr_of_T!=0]*1e9
         Qi_fitter = Qr_of_T[fr_of_T!=0]*Qc_of_T[fr_of_T!=0]/(Qc_of_T[fr_of_T!=0]-Qr_of_T[fr_of_T!=0])
 
-        results = Matt.MB_fitter(T_fitter,Qi_fitter,fr_fitter)
+        results = MBe.MB_fitter(T_fitter,Qi_fitter,fr_fitter)
 
         f0[Kn] = results[0]
         Delta[Kn] = results[1]
@@ -273,15 +273,15 @@ def plot_MB(fname, sweepnum, pickedres=None, show=True):
 
         fig, axarr = plt.subplots(ncols=2, nrows=1, figsize=(12,5))
 
-        axarr[0].plot(T_fitter*1000, 1e-6*abs(fr_fitter), 'o', markersize=8)#, label='f data')
-        axarr[0].plot(T_smooth*1000, 1e-6*abs(Matt.f_T(T_smooth,f0,Delta,alpha)), '--', c='k', linewidth=3)#, label='f(T) fit' )
+        axarr[0].semilogy(T_fitter*1000, 1e-6*fr_fitter/max(fr_fitter), 'o', markersize=8)#, label='f data')
+        axarr[0].plot(T_smooth*1000, 1e-6*MBe.f_T(T_smooth,f0,Delta,alpha)/max(fr_fitter), '--', c='k', linewidth=3)#, label='f(T) fit' )
         axarr[0].set_title('Mattis Bardeen fit')
         axarr[0].set_xlabel('Temperature [mK]')
         axarr[0].set_ylabel('fr [MHz]')
 
         axarr[1].semilogy(T_fitter[Qi_fitter>0]*1000, Qi_fitter[Qi_fitter>0], 'o', markersize=8, label='Data')
         axarr[1].semilogy(T_fitter[Qi_fitter<0]*1000, -Qi_fitter[Qi_fitter<0], 'o', markersize=8, label='negative Qi Data')
-        axarr[1].semilogy(T_smooth*1000, Matt.Qi_T(T_smooth,f0,Qi0,Delta,alpha), '--', c='k', label='Fit:', linewidth=3)
+        axarr[1].semilogy(T_smooth*1000, MBe.Qi_T(T_smooth,f0,Qi0,Delta,alpha), '--', c='k', label='Fit:', linewidth=3)
         axarr[1].set_title('Resonance #'+str(int(MKIDnum[Kn])))
         axarr[1].set_xlabel('Temperature [mK]')
         axarr[1].set_ylabel('Qi')
@@ -310,7 +310,7 @@ def MB_kappa(fname, sweepnum, pickedres=None):
 
     df3 = pd.read_hdf(fname, key='tempsweep/'+chosen_tempsweep+'/MB')
 
-    return np.array([df3['f0'],df3['Delta'],df3['alpha'],df3['Qi0']]).T
+    return np.array([df3['f0'],df3['Delta'],df3['alpha'],df3['Qi0']]).T[MKIDnum]
 
 def save_MB(fname, sweepnum, pickedres=None, show=False):
     with h5py.File(fname, 'r') as fyle:
@@ -417,14 +417,14 @@ def save_MB(fname, sweepnum, pickedres=None, show=False):
         alpha = np.array(df3['alpha'])[MKIDnum[Kn]]
 
         axarr[0,0].plot(T_fitter*1000, 1e-6*abs(fr_fitter), 'o', markersize=8)#, label='f data')
-        axarr[0,0].plot(T_smooth*1000, 1e-6*abs(Matt.f_T(T_smooth,f0,Delta,alpha)), '--', c='k', linewidth=3)#, label='f(T) fit' )
+        axarr[0,0].plot(T_smooth*1000, 1e-6*abs(MBe.f_T(T_smooth,f0,Delta,alpha)), '--', c='k', linewidth=3)#, label='f(T) fit' )
         axarr[0,0].set_title('Mattis Bardeen fit')
         axarr[0,0].set_xlabel('Temperature [mK]')
         axarr[0,0].set_ylabel('fr [MHz]')
 
         axarr[0,1].semilogy(T_fitter[Qi_fitter>0]*1000, Qi_fitter[Qi_fitter>0], 'o', markersize=8, label='Data')
         axarr[0,1].semilogy(T_fitter[Qi_fitter<0]*1000, -Qi_fitter[Qi_fitter<0], 'o', markersize=8, label='negative Qi Data')
-        axarr[0,1].semilogy(T_smooth*1000, Matt.Qi_T(T_smooth,f0,Qi0,Delta,alpha), '--', c='k', label='Fit:', linewidth=3)
+        axarr[0,1].semilogy(T_smooth*1000, MBe.Qi_T(T_smooth,f0,Qi0,Delta,alpha), '--', c='k', label='Fit:', linewidth=3)
         axarr[0,1].set_title('Resonance #'+str(int(MKIDnum[Kn])))
         axarr[0,1].set_xlabel('Temperature [mK]')
         axarr[0,1].set_ylabel('Qi')
@@ -444,5 +444,5 @@ if __name__ == '__main__':
     #fit_temp_res('200114OW190920p2.h5',1,pickedres=None)
     #plot_res('200114OW190920p2.h5',1,pickedres=None)
     #fit_temp_MB('200114OW190920p2.h5',1,pickedres=None)
-    #plot_MB('200114OW190920p2.h5',1,pickedres=None)
-    save_MB('200114OW190920p2.h5',1,pickedres=None,show=False)
+    plot_MB('200114OW190920p2.h5',1,pickedres=12)
+    #save_MB('200114OW190920p2.h5',1,pickedres=None,show=False)

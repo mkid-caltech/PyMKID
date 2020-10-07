@@ -24,7 +24,7 @@ def n_qp(T, Delta0):
 def f_T(T, f0, Delta0, alpha_f):
 	# [K, Hz, eV, _]
 	xi = 1./2.*(Planck_h*f0)/(Boltz_k*T)
-	return  -1.*alpha_f/(4.*Delta0*N_0) * ( 1. + np.sqrt((2.*Delta0)/(np.pi*Boltz_k*T)) * np.exp(-1.*xi) * spec.i0(xi) ) * n_qp(T,Delta0) * f0 + f0
+	return -1.*alpha_f/(4.*Delta0*N_0) * ( 1. + np.sqrt((2.*Delta0)/(np.pi*Boltz_k*T)) * np.exp(-1.*xi) * spec.i0(xi) ) * n_qp(T,Delta0) * f0 + f0
 
 def Qi_T(T, f0, Qi0, Delta0, alpha_Q):
 	xi = 1./2.*(Planck_h*f0)/(Boltz_k*T)
@@ -36,7 +36,17 @@ def kappa_1(T, f0, Delta0):
 
 def kappa_2(T, f0, Delta0):
 	xi = 1./2.*(Planck_h*f0)/(Boltz_k*T)
-	return  (1/(2.*Delta0*N_0))*(1.+np.sqrt((2.*Delta0)/(np.pi*Boltz_k*T))*np.exp(-1.*xi)*spec.i0(xi))
+	return (1/(2.*Delta0*N_0))*(1.+np.sqrt((2.*Delta0)/(np.pi*Boltz_k*T))*np.exp(-1.*xi)*spec.i0(xi))
+
+def S_1(fr,T,Delta):
+	# [Hz, K, eV]
+	xi = 1./2.*(Planck_h*fr)/(Boltz_k*T)
+	return (2/np.pi)*np.sqrt(2*Delta/(np.pi*Boltz_k*T))*np.sinh(xi)*spec.k0(xi) # unitless
+
+def S_2(fr,T,Delta):
+	# [Hz, K, eV]
+	xi = 1./2.*(Planck_h*fr)/(Boltz_k*T)
+	return 1+np.sqrt(2*Delta/(np.pi*Boltz_k*T))*np.exp(-1*xi)*spec.i0(xi) # unitless
 
 def MB_fitter(T_fit, Qi_fit, f_fit):
 
