@@ -32,7 +32,7 @@ def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_
     pulse_len = int(pulse_width*eff_rate)
     total_len = left_len + right_len
     xthreshold = int(time_threshold*eff_rate)
-    all_channels = np.mean(abs(raw_noise-np.mean(raw_noise,axis=0)),axis=1)
+    all_channels = np.mean(abs(raw_noise-np.mean(raw_noise,axis=0,dtype=complex)),axis=1)
 
     temp_time = np.array(range(left_len+right_len))*time_correction
 
@@ -211,7 +211,7 @@ def avg_noi(filename,time_threshold=0.05,verbose=False):
     eff_rate = rate/decimation
     time_correction = 1/eff_rate
     time_array = time_correction*np.arange(0,len(raw_noise))
-    array_mean = np.mean(raw_noise[time_array>time_threshold], axis=0)
+    array_mean = np.mean(raw_noise[time_array>time_threshold], axis=0,dtype=complex)
 
     return search_freqs*1e-6, array_mean
 
