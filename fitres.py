@@ -147,7 +147,7 @@ def fitphase2(f,z,zc,fr,Qr,z_off):
         return 4*Qr*(1-f_F/fr_F)/(1-4*Qr_F*Qr_F*((1-f_F/fr_F)**2))
 
     presults, pcov = opt.curve_fit(no_phi_eq,f,z_no_phi.imag/z_no_phi.real,p0=[fr,Qr])
-    #print presults
+    #print( presults)
 
     if False:
         plt.figure(1)
@@ -252,7 +252,7 @@ def roughfit(f, z, fr_0):
     z1 = removecable(f, z, tau_1+1j*Imtau_1, fr_0)
 
     if False:
-        #print tau_1
+        #print( tau_1)
         plt.figure(1)
         plt.axvline(x=0, color='gray')
         plt.axhline(y=0, color='gray')
@@ -514,7 +514,7 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
                     lookformax = True
 
     peaklist = sorted(peaklist)
-    print 'peaklist', peaklist
+    print( 'peaklist', peaklist)
 
     def peak_figure():
         fig, axarr = plt.subplots(nrows=2, sharex=True, num=1)
@@ -557,7 +557,7 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
 
     # define the windows around each peak. and then use finefit to find the parameters
     for i in range(len(peaklist)):
-        print 'Resonance #{}'.format(str(i))
+        print( 'Resonance #{}'.format(str(i)))
         curr_pts = (f >= (f[peaklist[i]]-2*fwindow)) & (f <= (f[peaklist[i]]+2*fwindow))
         f_curr = f[curr_pts]
         z_curr = z[curr_pts]
@@ -565,9 +565,9 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
         try:
             fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i], Qc_list[i] = finefit(f_curr, z_curr, f[peaklist[i]])
             Qi_list[i] = (Qr_list[i]*Qc_list[i])/(Qc_list[i]-Qr_list[i])
-        except Exception, issue:
-            print '      failure'
-            print issue
+        except Exception as issue:
+            print( '      failure')
+            print( issue)
             fr_list[i], Qr_list[i], Qc_hat_mag_list[i], a_list[i], phi_list[i], tau_list[i], Qc_list[i] = [f[peaklist[i]],1e4,1e5,1,0,0,1e5]
             Qi_list[i] = 0
 
@@ -636,5 +636,7 @@ def sweep_fit(f, z, nsig=3, fwindow=5e-4, pdf_rewrite=False, additions=[], filen
     return fr_list, Qr_list, Qc_list, Qi_list
 
 if __name__ == '__main__':
-    sweep_fit_from_file("191206YY180726p2.h5", nsig=1, fwindow=5e-4, h5_rewrite=True, pdf_rewrite=True, start_f=3.13, stop_f=3.18)
+    sweep_fit_from_file("190802YY180726p2.h5", nsig=1, fwindow=5e-4, h5_rewrite=False, pdf_rewrite=True, start_f=3.12, stop_f=3.18)
+    #sweep_fit_from_file("191015OW190920p1.h5", nsig=2, fwindow=5e-4, h5_rewrite=False, pdf_rewrite=False, start_f=3, stop_f=3.6)
+    #sweep_fit_from_file("191018OW190920p1.h5", nsig=1.5, fwindow=8e-4, h5_rewrite=False, pdf_rewrite=False, start_f=3, stop_f=3.6)
     plt.show()

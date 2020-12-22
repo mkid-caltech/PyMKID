@@ -9,8 +9,8 @@ import h5py
 import fitres as fitres
 import matplotlib.pyplot as plt
 
-#print fyle["raw_data0/A_RX2"].attrs.keys()
-#print fyle["raw_data0/A_RX2"].attrs.values()
+#print( fyle["raw_data0/A_RX2"].attrs.keys())
+#print( fyle["raw_data0/A_RX2"].attrs.values())
 
 def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_time=28e-3,pulse_width=20e-6,osmond=False,period=None):
     trigNum=0
@@ -36,7 +36,7 @@ def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_
 
     temp_time = np.array(range(left_len+right_len))*time_correction
 
-    if True:
+    if False:
         plt.figure(1)
         plt.plot(np.array(range(len(all_channels)))*time_correction,all_channels, label="stuff")
         plt.axhline(y=ythreshold,ls='--',c='gray')
@@ -69,7 +69,7 @@ def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_
                 # plt.figure()
                 # plt.plot(np.array(range(xx-left_len,xx+right_len))*time_correction,all_channels[xx-left_len:xx+right_len])
                 # plt.show()
-                print 'found first trigger'
+                print('found first trigger')
                 break
             first = all_channels[xx-int(window_size/2)+1]
             last = all_channels[xx+int(window_size/2)+1]
@@ -79,7 +79,7 @@ def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_
             window_mean += last/window_size
             xx += 1
             if xx == len(all_channels)/10:
-                print 'no  first trigger found'
+                print( 'no  first trigger found')
 
 
         xx += int(100e-3*eff_rate)
@@ -90,10 +90,10 @@ def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_
             # plt.plot(range(len(window)),window)
             # plt.show()
             peaks = np.argwhere(window > window_mean + 6*window_std)
-            # print peaks[0]
+            # print( peaks[0])
             if len(peaks)<2:
                 xx += int(100e-3*eff_rate)
-                print 'not enough peaks found'
+                print( 'not enough peaks found')
                 continue
             xx = peaks[0][0] + xx - int(window_size/2)
             if actual_trigNum > 9: # only want the second second, according to Taylor
@@ -116,14 +116,14 @@ def template(filename,time_threshold=20e-3,ythreshold=0.01,left_time=2e-3,right_
                     all_channels[xx-left_len:xx+right_len] = 0
 
 
-    print "Found %d triggering events"%(trigNum)
+    print( "Found %d triggering events"%(trigNum))
 
     return trigNum, temp_array, temp_time, search_freqs
 
 def vna_file_fit(filename,pickedres,show=False,save=False):
     pickedres = np.array(pickedres)
     VNA_f, VNA_z = read_vna(filename, decimation=1)
-    VNA_f = VNA_f*1e-3
+    VNA_f = VNA_f*1e-3 # from MHz to GHz
     frs = np.zeros(len(pickedres))
     Qrs = np.zeros(len(pickedres))
     for MKIDnum in range(len(pickedres)):
@@ -131,6 +131,7 @@ def vna_file_fit(filename,pickedres,show=False,save=False):
         index_range = 5000
         MKID_f = VNA_f[max(MKID_index-index_range,0):min(MKID_index+index_range,len(VNA_f))]
         MKID_z = VNA_z[max(MKID_index-index_range,0):min(MKID_index+index_range,len(VNA_f))]
+        #MKID_f = VNA_f[(VNA_f>=pickedres[MKIDnum]-)*(VNA_f<=pickedres[MKIDnum]+)]
         frs[MKIDnum], Qrs[MKIDnum], Qc_hat, a, phi, tau, Qc = fitres.finefit(MKID_f, MKID_z, pickedres[MKIDnum])
 
         if show:
@@ -175,45 +176,17 @@ def read_vna(filename, decimation=1,verbose=False):
     eff_rate = rate/decimation
 
     if verbose:
-        print "\n\nData taken "+str(Dt_tm)
-        print "Reported LO is "+str(LO*1e-6)+" MHz"
-        print "Reported rate is %f MHz"%(rate/1e6)
-        print "Entered decimation is %d"%(decimation)
-        print "\tEffective rate is %f kHz"%(eff_rate/1e3)
-        print "Reported amplitudes are "+str(amplitude)
-        print "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm"
+        print( "\n\nData taken "+str(Dt_tm))
+        print( "Reported LO is "+str(LO*1e-6)+" MHz")
+        print( "Reported rate is %f MHz"%(rate/1e6))
+        print( "Entered decimation is %d"%(decimation))
+        print( "\tEffective rate is %f kHz"%(eff_rate/1e3))
+        print( "Reported amplitudes are "+str(amplitude))
+        print( "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm")
 
     raw_f = np.linspace(LO+f0,LO+f1,len(raw_VNA[:,0]))*1e-6
 
     return raw_f, raw_VNA[:,0]
-
-def avg_noi(filename,time_threshold=0.05,verbose=False):
-    Dt_tm = filename.split('.')[0].split('_')[2] + '_' + filename.split('.')[0].split('_')[3]
-
-    with h5py.File(filename, "r") as fyle:
-        raw_noise = get_raw(fyle)
-        amplitude = fyle["raw_data0/A_TXRX"].attrs.get('ampl')
-        rate = fyle["raw_data0/A_RX2"].attrs.get('rate')
-        LO = fyle["raw_data0/A_RX2"].attrs.get('rf')
-        search_freqs = fyle["raw_data0/A_RX2"].attrs.get('rf') + fyle["raw_data0/A_RX2"].attrs.get('freq')
-        decimation = fyle["raw_data0/A_RX2"].attrs.get('decim')
-
-    if verbose:
-        print "\n\nData taken "+str(Dt_tm)
-        print "Reported LO is "+str(LO*1e-6)+" MHz"
-        print "Reported rate is %f MHz"%(rate/1e6)
-        print "Reported decimation is %d"%(decimation)
-        print "\tEffective rate is %f kHz"%(eff_rate/1e3)
-        print "Reported amplitudes are "+str(amplitude)
-        print "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm"
-        print "Tones are "+str(search_freqs*1e-6)+" MHz"
-
-    eff_rate = rate/decimation
-    time_correction = 1/eff_rate
-    time_array = time_correction*np.arange(0,len(raw_noise))
-    array_mean = np.mean(raw_noise[time_array>time_threshold], axis=0,dtype=complex)
-
-    return search_freqs*1e-6, array_mean
 
 def unavg_noi(filename,verbose=False):
     Dt_tm = filename.split('.')[0].split('_')[2] + '_' + filename.split('.')[0].split('_')[3]
@@ -227,19 +200,79 @@ def unavg_noi(filename,verbose=False):
         decimation = fyle["raw_data0/A_RX2"].attrs.get('decim')
 
     if verbose:
-        print "\n\nData taken "+str(Dt_tm)
-        print "Reported LO is "+str(LO*1e-6)+" MHz"
-        print "Reported rate is %f MHz"%(rate/1e6)
-        print "Reported decimation is %d"%(decimation)
-        print "\tEffective rate is %f kHz"%(eff_rate/1e3)
-        print "Reported amplitudes are "+str(amplitude)
-        print "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm"
-        print "Tones are "+str(search_freqs*1e-6)+" MHz"
+        print( "\n\nData taken "+str(Dt_tm))
+        print( "Reported LO is "+str(LO*1e-6)+" MHz")
+        print( "Reported rate is %f MHz"%(rate/1e6))
+        print( "Reported decimation is %d"%(decimation))
+        print( "\tEffective rate is %f kHz"%(eff_rate/1e3))
+        print( "Reported amplitudes are "+str(amplitude))
+        print( "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm")
+        print( "Tones are "+str(search_freqs*1e-6)+" MHz")
 
     eff_rate = rate/decimation
     time_correction = 1/eff_rate # s?
 
     return search_freqs*1e-6, raw_noise, time_correction
+
+def avg_noi(filename,time_threshold=0.05,verbose=False):
+    #Dt_tm = filename.split('.')[0].split('_')[2] + '_' + filename.split('.')[0].split('_')[3]
+    #
+    #with h5py.File(filename, "r") as fyle:
+    #    raw_noise = get_raw(fyle)
+    #    amplitude = fyle["raw_data0/A_TXRX"].attrs.get('ampl')
+    #    rate = fyle["raw_data0/A_RX2"].attrs.get('rate')
+    #    LO = fyle["raw_data0/A_RX2"].attrs.get('rf')
+    #    search_freqs = fyle["raw_data0/A_RX2"].attrs.get('rf') + fyle["raw_data0/A_RX2"].attrs.get('freq')
+    #    decimation = fyle["raw_data0/A_RX2"].attrs.get('decim')
+    #
+    #if verbose:
+    #    print( "\n\nData taken "+str(Dt_tm))
+    #    print( "Reported LO is "+str(LO*1e-6)+" MHz")
+    #    print( "Reported rate is %f MHz"%(rate/1e6))
+    #    print( "Reported decimation is %d"%(decimation))
+    #    print( "\tEffective rate is %f kHz"%(eff_rate/1e3))
+    #    print( "Reported amplitudes are "+str(amplitude))
+    #    print( "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm")
+    #    print( "Tones are "+str(search_freqs*1e-6)+" MHz")
+    #
+    #eff_rate = rate/decimation
+    #time_correction = 1/eff_rate
+
+    search_freqs, raw_noise, time_correction = unavg_noi(filename,verbose=verbose)
+    time_array = time_correction*np.arange(0,len(raw_noise))
+    array_mean = np.mean(raw_noise[time_array>time_threshold], axis=0,dtype=complex)
+
+    return search_freqs, array_mean
+
+def avg_noi_pls(filename,time_threshold = 20e-3):
+    #Dt_tm = filename.split('.')[0].split('_')[2] + '_' + filename.split('.')[0].split('_')[3]
+    #
+    #with h5py.File(filename, "r") as fyle:
+    #    #raw_noise = get_raw(fyle)
+    #    amplitude = fyle["raw_data0/A_TXRX"].attrs.get('ampl')
+    #    rate = fyle["raw_data0/A_RX2"].attrs.get('rate')
+    #    LO = fyle["raw_data0/A_RX2"].attrs.get('rf')
+    #    #search_freqs = fyle["raw_data0/A_RX2"].attrs.get('rf') + fyle["raw_data0/A_RX2"].attrs.get('freq')
+    #
+    #eff_rate = rate/decimation
+    #print( "\n\nData taken "+str(Dt_tm))
+    #print( "Reported LO is "+str(LO*1e-6)+" MHz")
+    #print( "Reported rate is %f MHz"%(rate/1e6))
+    #print( "Entered decimation is %d"%(decimation))
+    #print( "\tEffective rate is %f kHz"%(eff_rate/1e3))
+    #print( "Reported amplitudes are "+str(amplitude))
+    #print( "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm")
+
+    #time_correction = 1/eff_rate
+
+    #search_freqs, raw_noise, time_correction = unavg_noi(filename,verbose=verbose)
+
+    trigNum, temp_array, temp_time, search_freqs = template(filename,time_threshold=time_threshold,ythreshold=0.01,left_time=2e-3,right_time=28e-3,pulse_width=20e-6)
+
+    #print( "Tones are "+str(search_freqs*1e-6)+" MHz")
+    array_mean = np.mean(temp_array[temp_time<2e-3], axis=0)/trigNum
+
+    return search_freqs*1e-6, array_mean
 
 def avg_VNA(filename, decimation=1, f0=None, f1=None, targets=None,verbose=False):
     Dt_tm = filename.split('.')[0].split('_')[2] + '_' + filename.split('.')[0].split('_')[3]
@@ -253,19 +286,19 @@ def avg_VNA(filename, decimation=1, f0=None, f1=None, targets=None,verbose=False
 
     eff_rate = rate/decimation
     if verbose:
-        print "\n\nData taken "+str(Dt_tm)
-        print "Reported LO is "+str(LO*1e-6)+" MHz"
-        print "Reported rate is %f MHz"%(rate/1e6)
-        print "Entered decimation is %d"%(decimation)
-        print "\tEffective rate is %f kHz"%(eff_rate/1e3)
-        print "Reported amplitudes are "+str(amplitude)
-        print "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm"
+        print( "\n\nData taken "+str(Dt_tm))
+        print( "Reported LO is "+str(LO*1e-6)+" MHz")
+        print( "Reported rate is %f MHz"%(rate/1e6))
+        print( "Entered decimation is %d"%(decimation))
+        print( "\tEffective rate is %f kHz"%(eff_rate/1e3))
+        print( "Reported amplitudes are "+str(amplitude))
+        print( "\tPowers are "+str(-11+20*np.log10(amplitude))+" dBm")
 
     raw_f = np.arange(f0, f1, (f1-f0)/len(raw_VNA[:,0]))
 
     array_mean = np.array([])
     for freq in targets:
-        print str(raw_f[np.argmin(abs(raw_f-freq))])+' MHz'
+        print( str(raw_f[np.argmin(abs(raw_f-freq))])+' MHz')
         array_mean = np.append(array_mean,raw_VNA[np.argmin(abs(raw_f-freq))])
 
     return targets, array_mean, Dt_tm, int(time*rate/len(raw_VNA)), time/len(raw_VNA)

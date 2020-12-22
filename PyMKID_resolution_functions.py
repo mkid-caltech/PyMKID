@@ -17,6 +17,9 @@ c_wheel_1 = ['deepskyblue','sandybrown','lightgreen','lightcoral','mediumorchid'
 def discrete_FT(data):
     return (1/len(data))*fft.fft(data)
 
+def arclen(complex_data):
+    return np.angle(complex_data*np.exp(-1j*np.angle(np.mean(complex_data,axis=0))))*np.mean(abs(complex_data),axis=0)
+
 def CSD(data_array,time_correction,avg_num):
 
     chunk_len = int(0.5*len(data_array)/avg_num)
@@ -91,7 +94,7 @@ def coherence_analysis(noise_data_file,plot_file_name,extra_dec=None):
 
     # extra_dec is necessary if significant beating in band
     if extra_dec:
-        print 'doing additional decimation'
+        print('doing additional decimation')
         resonance_dec = sig.decimate(data_noise[:,0],extra_dec)
         tracking_dec = sig.decimate(data_noise[:,1],extra_dec)
         data_noise = np.array([resonance_dec,tracking_dec]).T
@@ -102,7 +105,8 @@ def coherence_analysis(noise_data_file,plot_file_name,extra_dec=None):
 
     # Converting to absolute and arc-length units
     coh_data_1 = abs(data_noise)
-    coh_data_2 = np.angle(data_noise*np.exp(-1j*np.angle(np.mean(data_noise,axis=0))))*np.mean(abs(data_noise),axis=0)
+    #coh_data_2 = np.angle(data_noise*np.exp(-1j*np.angle(np.mean(data_noise,axis=0))))*np.mean(abs(data_noise),axis=0)
+    coh_data_2 = arclen(data_noise)
 
     # Calculating cross-PSDs (for coherence and PSD comparisons)
     J_freqs, CSD_avg_1 = CSD(coh_data_1, time_correction, 33)
